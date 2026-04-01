@@ -1,5 +1,5 @@
 import { prepare, layout, type PreparedText } from '@chenglou/pretext'
-import { renderColumnSummary } from './sparkline'
+import { renderColumnSummary, unmountColumnSummary } from './sparkline'
 
 // --- Types ---
 
@@ -60,6 +60,7 @@ export type TableData = {
 
 export type TableEngine = {
   onBatchAppended(): void
+  destroy(): void
 }
 
 type SortState = { col: number; dir: 'asc' | 'desc' } | null
@@ -307,7 +308,35 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   const statFrame = makeStatSpan('pt-stat-frame')
 
   statRows.textContent = `${rowCount.toLocaleString()} rows`
-  statsEl.append(statRows, sep(), statRange, sep(), statDom, sep(), statFrame)
+
+  // Fullscreen toggle
+  const fullscreenBtn = document.createElement('button')
+  fullscreenBtn.className = 'pt-fullscreen-btn'
+  fullscreenBtn.title = 'Toggle fullscreen'
+  fullscreenBtn.textContent = '⛶'
+  fullscreenBtn.addEventListener('click', () => {
+    if (document.fullscreenElement === container) {
+      document.exitFullscreen()
+    } else {
+      container.requestFullscreen()
+    }
+  })
+
+  // Update button label on fullscreen change
+  function onFullscreenChange() {
+    const isFS = document.fullscreenElement === container
+    fullscreenBtn.textContent = isFS ? '⛶' : '⛶'
+    fullscreenBtn.title = isFS ? 'Exit fullscreen' : 'Toggle fullscreen'
+    // Trigger re-render since dimensions changed
+    heightsDirty = true
+    scheduleRender()
+  }
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+
+  const statsSpacer = document.createElement('div')
+  statsSpacer.style.flex = '1'
+
+  statsEl.append(statRows, sep(), statRange, sep(), statDom, sep(), statFrame, statsSpacer, fullscreenBtn)
   container.appendChild(statsEl)
 
   function sep(): HTMLSpanElement {
@@ -530,17 +559,18 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
 
   // --- Scroll handler ---
 
-  viewport.addEventListener('scroll', () => {
+  function onScroll() {
     headerEl.scrollLeft = viewport.scrollLeft
     scheduleRender()
-  }, { passive: true })
+  }
 
-  // Forward wheel events on the header to the viewport so scrolling over the header works
-  headerEl.addEventListener('wheel', (e) => {
+  function onHeaderWheel(e: WheelEvent) {
     viewport.scrollTop += e.deltaY
     viewport.scrollLeft += e.deltaX
-  }, { passive: true })
+  }
 
+  viewport.addEventListener('scroll', onScroll, { passive: true })
+  headerEl.addEventListener('wheel', onHeaderWheel, { passive: true })
   window.addEventListener('resize', scheduleRender)
 
   // --- Column resize ---
@@ -665,5 +695,30 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
 
   scheduleRender()
 
-  return { onBatchAppended }
+  // --- Destroy ---
+
+  function destroy() {
+    // Cancel pending render
+    if (scheduledRaf !== null) {
+      cancelAnimationFrame(scheduledRaf)
+      scheduledRaf = null
+    }
+
+    // Remove event listeners
+    viewport.removeEventListener('scroll', onScroll)
+    headerEl.removeEventListener('wheel', onHeaderWheel)
+    window.removeEventListener('resize', scheduleRender)
+    document.removeEventListener('fullscreenchange', onFullscreenChange)
+
+    // Unmount React roots
+    for (const el of summaryContainers) {
+      unmountColumnSummary(el)
+    }
+
+    // Clear DOM
+    container.innerHTML = ''
+    container.classList.remove('pt-table-container')
+  }
+
+  return { onBatchAppended, destroy }
 }

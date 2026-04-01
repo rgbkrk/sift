@@ -27,6 +27,14 @@ body {
   width: min(1200px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 32px 0 48px;
+  height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
+}
+
+#table-root {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .pt-intro {
@@ -86,6 +94,7 @@ h1 {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  height: 100%; /* fill parent */
 }
 
 /* --- Header --- */
@@ -250,8 +259,7 @@ h1 {
 
 .pt-viewport {
   flex: 1 1 0;
-  height: calc(100vh - 200px);
-  min-height: 400px;
+  min-height: 0; /* allow flex shrinking */
   overflow-y: auto;
   overflow-x: auto;
   position: relative;
@@ -377,6 +385,34 @@ h1 {
 @keyframes stat-pop {
   0% { color: var(--accent); }
   100% { color: var(--muted); }
+}
+
+.pt-fullscreen-btn {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--muted);
+  font: 16px/1 var(--font);
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.pt-fullscreen-btn:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+/* --- Fullscreen state --- */
+
+.pt-table-container:fullscreen {
+  border-radius: 0;
+  border: none;
+  background: var(--panel);
+}
+
+.pt-table-container:fullscreen .pt-viewport {
+  flex: 1 1 0;
 }
 
 /* --- Scrollbar styling --- */

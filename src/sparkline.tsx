@@ -211,3 +211,11 @@ export function renderColumnSummary(
   }
   root.render(<ColumnSummaryChart summary={summary} width={width} visibleBins={visibleBins} />)
 }
+
+export function unmountColumnSummary(container: HTMLElement) {
+  const root = roots.get(container)
+  if (root) {
+    root.unmount()
+    roots.delete(container)
+  }
+}
