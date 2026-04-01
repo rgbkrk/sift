@@ -292,6 +292,12 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
 
   const scrollContent = document.createElement('div')
   scrollContent.className = 'pt-scroll-content'
+  // Set min-width so horizontal scroll position is preserved when pool rows are hidden
+  function updateScrollContentWidth() {
+    const totalW = colWidths.reduce((s, w) => s + w, 0)
+    scrollContent.style.minWidth = totalW + 'px'
+  }
+  updateScrollContentWidth()
 
   const rowPool = document.createElement('div')
   rowPool.className = 'pt-row-pool'
@@ -628,6 +634,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
           colWidths[colIndex] - CELL_PAD_H,
         )
       }
+      updateScrollContentWidth()
       heightsDirty = true
       scheduleRender()
     }
@@ -664,6 +671,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
     }
 
     applySort()
+    // Reset vertical scroll but preserve horizontal position
     viewport.scrollTop = 0
     for (const pr of pool) {
       pr.assignedRow = -1
