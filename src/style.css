@@ -156,7 +156,7 @@ h1 {
   display: block;
 }
 
-/* Hide all Semiotic axes/ticks/labels in header charts — too small for them */
+/* Hide Semiotic axis labels in header charts */
 .pt-th-summary text {
   display: none !important;
 }

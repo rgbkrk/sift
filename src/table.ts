@@ -278,6 +278,38 @@ export function createTable(container: HTMLElement, data: TableData) {
     return value
   }
 
+  // --- Visible range overlay for header sparklines ---
+
+  let lastVisFirst = -1
+  let lastVisLast = -1
+
+  function updateVisibleOverlays(visFirst: number, visLast: number) {
+    for (let c = 0; c < columns.length; c++) {
+      const summary = data.columnSummaries[c]
+      if (!summary || summary.kind !== 'numeric') continue
+
+      const bins = summary.bins
+      const visibleBins = new Array<number>(bins.length).fill(0)
+      const binWidth = (summary.max - summary.min) / bins.length || 1
+
+      for (let r = visFirst; r <= visLast; r++) {
+        const dataRow = sortedIndices[r]
+        const v = data.getCellRaw(dataRow, c) as number
+        let idx = Math.floor((v - summary.min) / binWidth)
+        if (idx >= bins.length) idx = bins.length - 1
+        if (idx < 0) idx = 0
+        visibleBins[idx]++
+      }
+
+      renderColumnSummary(
+        summaryContainers[c],
+        summary,
+        colWidths[c] - CELL_PAD_H,
+        visibleBins,
+      )
+    }
+  }
+
   // --- Row pool (recycle DOM nodes) ---
 
   type PooledRow = {
@@ -386,6 +418,13 @@ export function createTable(container: HTMLElement, data: TableData) {
         pr.el.style.height = rowHeights[pr.assignedRow] + 'px'
         pr.el.style.transform = `translateY(${rowPositions[pr.assignedRow]}px)`
       }
+    }
+
+    // Update header sparkline overlays when visible range changes
+    if (first !== lastVisFirst || last !== lastVisLast) {
+      lastVisFirst = first
+      lastVisLast = last
+      updateVisibleOverlays(first, Math.min(last, rowCount - 1))
     }
 
     lastScrollTop = scrollTop
