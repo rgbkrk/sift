@@ -9,7 +9,7 @@ import {
 } from 'apache-arrow'
 import { writeFileSync, mkdirSync } from 'node:fs'
 
-const ROW_COUNT = 50_000
+const ROW_COUNT = 100_000
 const BATCH_SIZE = 5_000
 
 // --- Name pools ---
@@ -133,6 +133,7 @@ function generateBatch(startId: number, count: number) {
   const emails: string[] = []
   const verified: boolean[] = []
   const joined = new Float64Array(count)
+  const chaos: (number | null)[] = []
 
   for (let i = 0; i < count; i++) {
     ids[i] = startId + i + 1
@@ -148,6 +149,20 @@ function generateBatch(startId: number, count: number) {
     emails.push(`${sanitizeEmail(first)}.${sanitizeEmail(last)}@${pick(emailDomains)}`)
     verified.push(rand() < 0.72)
     joined[i] = Math.round(NOW - rand() * FIVE_YEARS_MS)
+
+    // The chaos column: mostly normal values, sprinkled with horrors
+    const roll = rand()
+    if (roll < 0.03) chaos.push(null)
+    else if (roll < 0.05) chaos.push(NaN)
+    else if (roll < 0.065) chaos.push(Infinity)
+    else if (roll < 0.08) chaos.push(-Infinity)
+    else if (roll < 0.09) chaos.push(0)
+    else if (roll < 0.095) chaos.push(-0)
+    else if (roll < 0.10) chaos.push(Number.MAX_SAFE_INTEGER)
+    else if (roll < 0.105) chaos.push(Number.MIN_SAFE_INTEGER)
+    else if (roll < 0.11) chaos.push(Number.EPSILON)
+    else if (roll < 0.115) chaos.push(4.9e-324) // Number.MIN_VALUE
+    else chaos.push(Math.round((rand() * 200 - 100) * 100) / 100)
   }
 
   return tableFromArrays({
@@ -162,6 +177,7 @@ function generateBatch(startId: number, count: number) {
     email: emails,
     verified,
     joined,
+    chaos,
   })
 }
 

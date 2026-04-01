@@ -193,9 +193,17 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
       indices.sort((a, b) => {
         let cmp: number
         if (isNumeric) {
-          const va = Number(data.getCellRaw(a, col))
-          const vb = Number(data.getCellRaw(b, col))
-          cmp = va - vb
+          const rawA = data.getCellRaw(a, col)
+          const rawB = data.getCellRaw(b, col)
+          const va = rawA == null ? NaN : Number(rawA)
+          const vb = rawB == null ? NaN : Number(rawB)
+          // Push NaN/null to the end regardless of direction
+          const aOk = Number.isFinite(va) || va === Infinity || va === -Infinity
+          const bOk = Number.isFinite(vb) || vb === Infinity || vb === -Infinity
+          if (!aOk && !bOk) cmp = 0
+          else if (!aOk) return 1  // a goes to end
+          else if (!bOk) return -1 // b goes to end
+          else cmp = va - vb
         } else if (colType === 'boolean') {
           const va = data.getCellRaw(a, col) ? 1 : 0
           const vb = data.getCellRaw(b, col) ? 1 : 0
@@ -374,7 +382,10 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
 
       for (let r = visFirst; r <= visLast; r++) {
         const dataRow = sortedIndices[r]
-        const v = Number(data.getCellRaw(dataRow, c))
+        const raw = data.getCellRaw(dataRow, c)
+        if (raw == null) continue
+        const v = Number(raw)
+        if (!Number.isFinite(v)) continue
         let idx = Math.floor((v - summary.min) / binWidth)
         if (idx >= bins.length) idx = bins.length - 1
         if (idx < 0) idx = 0

@@ -36,12 +36,22 @@ interface SummaryAccumulator {
 class NumericAccumulator implements SummaryAccumulator {
   min = Infinity; max = -Infinity
   monotonic = true; lastValue = -Infinity
-  private allValues: number[] = []
+  // Only finite values go into the histogram
+  private finiteValues: number[] = []
+  private nanCount = 0
+  private infCount = 0
+  private negInfCount = 0
+  private nullCount = 0
 
   add(rawCol: unknown[], startRow: number, count: number) {
     for (let r = startRow; r < startRow + count; r++) {
-      const v = rawCol[r] as number
-      this.allValues.push(v)
+      const raw = rawCol[r]
+      if (raw == null) { this.nullCount++; continue }
+      const v = raw as number
+      if (Number.isNaN(v)) { this.nanCount++; continue }
+      if (v === Infinity) { this.infCount++; continue }
+      if (v === -Infinity) { this.negInfCount++; continue }
+      this.finiteValues.push(v)
       if (v < this.min) this.min = v
       if (v > this.max) this.max = v
       if (v < this.lastValue) this.monotonic = false
@@ -50,13 +60,14 @@ class NumericAccumulator implements SummaryAccumulator {
   }
 
   snapshot(): ColumnSummary {
-    if (this.monotonic || this.allValues.length === 0) return null
+    if (this.monotonic && this.nanCount === 0 && this.infCount === 0 && this.negInfCount === 0 && this.nullCount === 0) return null
+    if (this.finiteValues.length === 0) return null
     const binWidth = (this.max - this.min) / BIN_COUNT || 1
     const bins: NumericColumnSummary['bins'] = []
     for (let b = 0; b < BIN_COUNT; b++) {
       bins.push({ x0: this.min + b * binWidth, x1: this.min + (b + 1) * binWidth, count: 0 })
     }
-    for (const v of this.allValues) {
+    for (const v of this.finiteValues) {
       let idx = Math.floor((v - this.min) / binWidth)
       if (idx >= BIN_COUNT) idx = BIN_COUNT - 1
       if (idx < 0) idx = 0
@@ -163,6 +174,7 @@ const columnOverrides: Record<string, Partial<Column>> = {
   email:      { label: 'Email', width: 200, sortable: true },
   verified:   { label: 'Verified', width: 100, sortable: true },
   joined:     { label: 'Joined', width: 120, sortable: true },
+  chaos:      { label: 'Chaos', width: 130, sortable: true },
 }
 
 // --- Boot ---
