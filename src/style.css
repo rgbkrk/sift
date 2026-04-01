@@ -1,0 +1,326 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: light;
+  --page: #f5f2ec;
+  --panel: #fffdf9;
+  --ink: #1e1a18;
+  --muted: #6e655f;
+  --rule: #d8cec3;
+  --accent: #955f3b;
+  --row-alt: rgba(0, 0, 0, 0.018);
+  --font: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+/* --- Page layout --- */
+
+.pt-page {
+  width: min(1200px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.pt-intro {
+  margin-bottom: 20px;
+}
+
+.pt-eyebrow {
+  margin: 0 0 8px;
+  font: 12px/1.2 "SF Mono", ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  margin: 0;
+  font: 700 30px/1.08 Georgia, "Times New Roman", serif;
+  color: var(--ink);
+}
+
+.pt-subtitle {
+  margin: 10px 0 0;
+  max-width: 72ch;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.pt-subtitle a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.pt-subtitle a:hover {
+  text-decoration: underline;
+}
+
+.pt-loading {
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.pt-loading code {
+  font-family: "SF Mono", ui-monospace, monospace;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* --- Table container --- */
+
+.pt-table-container {
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Header --- */
+
+.pt-header {
+  flex-shrink: 0;
+  overflow-x: hidden;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--panel) 90%, var(--page) 10%);
+}
+
+.pt-header-row {
+  display: flex;
+}
+
+.pt-th {
+  flex-shrink: 0;
+  position: relative;
+  padding: 8px 12px;
+  font: 600 12px/1.2 var(--font);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.pt-th:hover {
+  color: var(--ink);
+}
+
+.pt-th-top {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pt-th-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pt-sort-arrow {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* --- Column summary charts --- */
+
+.pt-th-summary {
+  width: 100%;
+  overflow: hidden;
+  --semiotic-bg: transparent;
+  --semiotic-text: var(--muted);
+  --semiotic-text-secondary: var(--muted);
+  --semiotic-border: transparent;
+  --semiotic-grid: transparent;
+  --semiotic-primary: var(--accent);
+}
+
+.pt-th-summary svg,
+.pt-th-summary canvas {
+  display: block;
+}
+
+/* Hide Semiotic axis ticks/labels in header charts — too small for them */
+.pt-th-summary .axis text,
+.pt-th-summary .axis line,
+.pt-th-summary .axis path {
+  display: none;
+}
+
+.pt-th-range {
+  display: block;
+  margin-top: 2px;
+  font: 400 10px/1.2 var(--font);
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.pt-cat-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pt-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: 400 10px/1.2 var(--font);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.pt-cat-bar-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 20px;
+}
+
+.pt-cat-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  min-width: 2px;
+}
+
+.pt-cat-label {
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pt-cat-pct {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* --- Resize handles --- */
+
+.pt-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.pt-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  right: 2px;
+  width: 2px;
+  height: 60%;
+  border-radius: 1px;
+  background: var(--rule);
+  transition: background 120ms ease;
+}
+
+.pt-resize-handle:hover::after,
+.pt-resize-handle.dragging::after {
+  background: var(--accent);
+}
+
+/* --- Virtual scroll viewport --- */
+
+.pt-viewport {
+  flex: 1 1 0;
+  height: calc(100vh - 200px);
+  min-height: 400px;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.pt-scroll-content {
+  position: relative;
+  width: max-content;
+}
+
+.pt-row-pool {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+}
+
+/* --- Rows & cells --- */
+
+.pt-row {
+  position: absolute;
+  left: 0;
+  display: flex;
+  width: max-content;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 40%, transparent);
+}
+
+.pt-row-alt {
+  background: var(--row-alt);
+}
+
+.pt-cell {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font: 14px/20px var(--font);
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* --- Stats bar --- */
+
+.pt-stats {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  font: 12px/1.3 "SF Mono", ui-monospace, monospace;
+  color: var(--muted);
+  border-top: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--panel) 90%, var(--page) 10%);
+}
+
+/* --- Scrollbar styling --- */
+
+.pt-viewport::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.pt-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pt-viewport::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 4px;
+}
+
+.pt-viewport::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
