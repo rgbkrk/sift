@@ -395,9 +395,10 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   function renderSummary(c: number, visibleBins?: number[]) {
     const summary = data.columnSummaries[c]
     if (summary) {
+      const unfiltered = hasActiveFilters() ? unfilteredSummaries[c] ?? undefined : undefined
       renderColumnSummary(
         summaryContainers[c], summary, colWidths[c] - CELL_PAD_H,
-        visibleBins, filters[c], filterCallbacks[c],
+        visibleBins, filters[c], filterCallbacks[c], unfiltered,
       )
     }
   }

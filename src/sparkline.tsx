@@ -336,8 +336,9 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRe
 
 // --- Categorical bars (click to filter) ---
 
-function CategoricalBars({ summary, activeFilter, onFilter }: {
+function CategoricalBars({ summary, unfilteredAllCategories, activeFilter, onFilter }: {
   summary: CategoricalColumnSummary
+  unfilteredAllCategories?: CategoryEntry[]
   activeFilter?: ColumnFilter
   onFilter: FilterCallback
 }) {
@@ -393,7 +394,7 @@ function CategoricalBars({ summary, activeFilter, onFilter }: {
       })}
       {popoverOpen && (
         <CategoryPopover
-          allCategories={summary.allCategories}
+          allCategories={unfilteredAllCategories ?? summary.allCategories}
           activeSet={activeSet}
           onFilter={onFilter}
           onClose={() => setPopoverOpen(false)}
@@ -491,8 +492,9 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
 
 // --- Dispatch ---
 
-function ColumnSummaryChart({ summary, width, visibleBins, activeFilter, onFilter }: {
+function ColumnSummaryChart({ summary, unfilteredSummary, width, visibleBins, activeFilter, onFilter }: {
   summary: NonNullSummary
+  unfilteredSummary?: NonNullSummary
   width: number
   visibleBins?: number[]
   activeFilter?: ColumnFilter
@@ -507,8 +509,10 @@ function ColumnSummaryChart({ summary, width, visibleBins, activeFilter, onFilte
         activeFilter={activeFilter?.kind === 'range' ? activeFilter : null} onFilter={onFilter} />
     case 'boolean':
       return <BooleanRatioBar summary={summary} activeFilter={activeFilter} onFilter={onFilter} />
-    case 'categorical':
-      return <CategoricalBars summary={summary} activeFilter={activeFilter} onFilter={onFilter} />
+    case 'categorical': {
+      const unfilteredCategorical = unfilteredSummary?.kind === 'categorical' ? unfilteredSummary : undefined
+      return <CategoricalBars summary={summary} unfilteredAllCategories={unfilteredCategorical?.allCategories} activeFilter={activeFilter} onFilter={onFilter} />
+    }
   }
 }
 
@@ -534,6 +538,7 @@ export function renderColumnSummary(
   visibleBins?: number[],
   activeFilter?: ColumnFilter,
   onFilter?: FilterCallback,
+  unfilteredSummary?: NonNullSummary,
 ) {
   let root = roots.get(container)
   if (!root) {
@@ -543,6 +548,7 @@ export function renderColumnSummary(
   root.render(
     <ColumnSummaryChart
       summary={summary}
+      unfilteredSummary={unfilteredSummary}
       width={width}
       visibleBins={visibleBins}
       activeFilter={activeFilter ?? null}
