@@ -343,6 +343,34 @@ export function store_histogram(handle, col, num_bins) {
 }
 
 /**
+ * Sort a column and return sorted row indices.
+ * `ascending`: true for asc, false for desc.
+ * Nulls are always sorted to the end.
+ * @param {number} handle
+ * @param {number} col
+ * @param {boolean} ascending
+ * @returns {Uint32Array}
+ */
+export function store_sort_indices(handle, col, ascending) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.store_sort_indices(retptr, handle, col, ascending);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        if (r3) {
+            throw takeObject(r2);
+        }
+        var v1 = getArrayU32FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export3(r0, r1 * 4, 4);
+        return v1;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Compute value_counts for a column in a loaded store. Much faster than
  * the JS accumulator path since it iterates batches in Rust.
  * @param {number} handle

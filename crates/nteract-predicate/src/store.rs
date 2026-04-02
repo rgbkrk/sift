@@ -1,5 +1,7 @@
-use arrow::array::{Array, AsArray, Float64Array, Int32Array, Int64Array, StringArray, BooleanArray, UInt64Array};
+use arrow::array::{Array, AsArray, Float64Array, Int32Array, Int64Array, UInt32Array, StringArray, BooleanArray, UInt64Array};
 use arrow::datatypes::{DataType, TimeUnit};
+use arrow_select::concat::concat;
+use arrow_ord::sort::{sort_to_indices, SortOptions};
 use crate::summary::{CategoryCount, HistogramBin};
 use arrow::ipc::reader::StreamReader;
 use arrow::record_batch::RecordBatch;
@@ -406,4 +408,37 @@ pub fn store_bool_counts(handle: u32, col: usize) -> Result<Vec<u32>, JsValue> {
         }
         vec![true_count, false_count, null_count]
     }).map_err(|e| JsValue::from_str(&e))
+}
+
+/// Sort a column and return sorted row indices.
+/// `ascending`: true for asc, false for desc.
+/// Nulls are always sorted to the end.
+#[wasm_bindgen]
+pub fn store_sort_indices(handle: u32, col: usize, ascending: bool) -> Result<Vec<u32>, JsValue> {
+    with_store(handle, |s| {
+        // Concatenate column across all batches into a single array
+        let arrays: Vec<&dyn Array> = s.batches.iter()
+            .map(|b| b.column(col).as_ref())
+            .collect();
+
+        if arrays.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let combined = concat(&arrays)
+            .map_err(|e| format!("concat error: {}", e))?;
+
+        let options = SortOptions {
+            descending: !ascending,
+            nulls_first: false, // nulls always at end
+        };
+
+        let indices = sort_to_indices(combined.as_ref(), Some(options), None)
+            .map_err(|e| format!("sort error: {}", e))?;
+
+        // Convert UInt32Array to Vec<u32>
+        Ok(indices.values().iter().copied().collect())
+    })
+    .map_err(|e| JsValue::from_str(&e))?
+    .map_err(|e: String| JsValue::from_str(&e))
 }
