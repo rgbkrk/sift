@@ -191,10 +191,23 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRe
   onClose: () => void
   anchorRef: React.RefObject<HTMLElement | null>
 }) {
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [pos, setPos] = useState({ top: 0, left: 0 })
+
+  // Pre-lowercase all labels once (avoids 89k toLowerCase() calls per keystroke)
+  const lowercased = useMemo(
+    () => allCategories.map(c => c.label.toLowerCase()),
+    [allCategories],
+  )
+
+  // Debounce search to avoid filtering 89k entries on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 80)
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -229,8 +242,12 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRe
   const filtered = useMemo(() => {
     if (!search) return allCategories
     const q = search.toLowerCase()
-    return allCategories.filter(c => c.label.toLowerCase().includes(q))
-  }, [allCategories, search])
+    const result: CategoryEntry[] = []
+    for (let i = 0; i < allCategories.length; i++) {
+      if (lowercased[i].includes(q)) result.push(allCategories[i])
+    }
+    return result
+  }, [allCategories, lowercased, search])
 
   // Simple virtual scroll: track scroll offset
   const [scrollTop, setScrollTop] = useState(0)
@@ -264,8 +281,8 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRe
         className="pt-cat-popover-search"
         type="text"
         placeholder={`Search ${allCategories.length} values…`}
-        value={search}
-        onChange={e => { setSearch(e.target.value); setScrollTop(0) }}
+        value={searchInput}
+        onChange={e => { setSearchInput(e.target.value); setScrollTop(0) }}
       />
       <div className="pt-cat-popover-actions">
         <button onClick={selectAll} className="pt-cat-popover-btn">All</button>
