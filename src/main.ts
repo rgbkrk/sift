@@ -239,36 +239,56 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
 
   const { tableData, columns } = createWasmTableData(handle)
 
-  // Build accumulators for summaries (still JS for now — task #7 will move to WASM)
+  // Build summaries directly in WASM — no JS accumulator loop
   const mod = getModuleSync()
   const numRows = mod.num_rows(handle)
-  const accumulators: SummaryAccumulator[] = columns.map((col, c) => {
+  const BIN_COUNT = 25
+
+  tableData.rowCount = numRows
+  tableData.columnSummaries = columns.map((col, c) => {
     switch (col.columnType) {
-      case 'numeric': return new NumericAccumulator()
-      case 'timestamp': return new TimestampAccumulator()
-      case 'boolean': return new BooleanAccumulator()
       case 'categorical': {
-        // Build a string array from WASM for the categorical accumulator
-        const strings: string[] = []
-        for (let r = 0; r < numRows; r++) {
-          strings.push(mod.is_null(handle, r, c) ? '' : mod.get_cell_string(handle, r, c))
+        const counts = mod.store_value_counts(handle, c) as { label: string; count: number }[]
+        const totalRows = numRows
+        const allCategories = counts.map(({ label, count }) => ({
+          label, count,
+          pct: Math.round((count / totalRows) * 1000) / 10,
+        }))
+        const topCategories = allCategories.slice(0, 3)
+        const othersCount = counts.slice(3).reduce((s, e) => s + e.count, 0)
+        const othersPct = Math.round((othersCount / totalRows) * 1000) / 10
+        return {
+          kind: 'categorical' as const,
+          uniqueCount: counts.length,
+          topCategories,
+          othersCount,
+          othersPct,
+          allCategories,
         }
-        return new CategoricalAccumulator(strings)
+      }
+      case 'boolean': {
+        const [trueCount, falseCount, nullCount] = mod.store_bool_counts(handle, c)
+        return {
+          kind: 'boolean' as const,
+          trueCount,
+          falseCount,
+          nullCount,
+          total: numRows,
+        }
+      }
+      case 'numeric':
+      case 'timestamp': {
+        const bins = mod.store_histogram(handle, c, BIN_COUNT) as { x0: number; x1: number; count: number }[]
+        if (bins.length === 0) return null
+        return {
+          kind: col.columnType as 'numeric' | 'timestamp',
+          min: bins[0].x0,
+          max: bins[bins.length - 1].x1,
+          bins,
+        }
       }
     }
   })
-
-  // Feed raw values to accumulators
-  for (let c = 0; c < columns.length; c++) {
-    const raw: unknown[] = []
-    for (let r = 0; r < numRows; r++) {
-      raw.push(tableData.getCellRaw(r, c))
-    }
-    accumulators[c].add(raw, 0, numRows)
-  }
-
-  tableData.rowCount = numRows
-  tableData.columnSummaries = accumulators.map(a => a.snapshot(numRows))
 
   tableRoot.innerHTML = ''
   currentEngine = createTable(tableRoot, tableData)

@@ -295,6 +295,77 @@ export function num_rows(handle) {
 }
 
 /**
+ * Count boolean values in a column: returns [true_count, false_count, null_count].
+ * @param {number} handle
+ * @param {number} col
+ * @returns {Uint32Array}
+ */
+export function store_bool_counts(handle, col) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.store_bool_counts(retptr, handle, col);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        if (r3) {
+            throw takeObject(r2);
+        }
+        var v1 = getArrayU32FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export3(r0, r1 * 4, 4);
+        return v1;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Compute histogram for a numeric column in a loaded store.
+ * @param {number} handle
+ * @param {number} col
+ * @param {number} num_bins
+ * @returns {any}
+ */
+export function store_histogram(handle, col, num_bins) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.store_histogram(retptr, handle, col, num_bins);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Compute value_counts for a column in a loaded store. Much faster than
+ * the JS accumulator path since it iterates batches in Rust.
+ * @param {number} handle
+ * @param {number} col
+ * @returns {any}
+ */
+export function store_value_counts(handle, col) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.store_value_counts(retptr, handle, col);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Search a string column for values containing a substring.
  * Returns indices of matching rows as a Uint32Array.
  *

@@ -17,6 +17,10 @@ type PredicateModule = {
   get_cell_string(handle: number, row: number, col: number): string
   get_cell_f64(handle: number, row: number, col: number): number
   is_null(handle: number, row: number, col: number): boolean
+  // Store-based summaries (operates on handle, iterates in Rust)
+  store_value_counts(handle: number, col: number): { label: string; count: number }[]
+  store_histogram(handle: number, col: number, num_bins: number): { x0: number; x1: number; count: number }[]
+  store_bool_counts(handle: number, col: number): Uint32Array
   // Compute (stateless, takes IPC bytes)
   value_counts(ipc_bytes: Uint8Array, column_index: number): { label: string; count: number }[]
   histogram(ipc_bytes: Uint8Array, column_index: number, num_bins: number): { x0: number; x1: number; count: number }[]
