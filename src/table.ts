@@ -341,9 +341,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   container.setAttribute('role', 'grid')
   container.setAttribute('aria-label', 'Data table')
 
-  // Header
+  // Header — lives inside the scroll content so it scrolls
+  // horizontally with the data. position: sticky keeps it at top.
   const headerEl = document.createElement('div')
   headerEl.className = 'pt-header'
+
   const headerRowEl = document.createElement('div')
   headerRowEl.className = 'pt-header-row'
 
@@ -419,7 +421,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   }
 
   headerEl.appendChild(headerRowEl)
-  container.appendChild(headerEl)
+  // Header is appended to scroll content (not container) so it scrolls
+  // horizontally with data. position: sticky; top: 0 keeps it visible.
 
   // Create stable filter callbacks per column
   const filterCallbacks: ((filter: ColumnFilter) => void)[] = columns.map((_, c) =>
@@ -458,6 +461,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   const rowPool = document.createElement('div')
   rowPool.className = 'pt-row-pool'
 
+  scrollContent.appendChild(headerEl) // Header inside scroll content for natural H scroll
   scrollContent.appendChild(rowPool)
 
   // Empty state overlay (shown when filters exclude all rows)
@@ -788,6 +792,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       for (let c = 0; c < columns.length; c++) {
         renderCell(pr.cells[c], dataRow, c)
         pr.cells[c].style.width = colWidths[c] + 'px'
+        applyCellPinStyle(pr.cells[c], c)
       }
     }
 
@@ -814,6 +819,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         for (let c = 0; c < columns.length; c++) {
           renderCell(pr.cells[c], dataRow, c)
           pr.cells[c].style.width = colWidths[c] + 'px'
+          applyCellPinStyle(pr.cells[c], c)
         }
       }
     }
@@ -850,17 +856,13 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   // --- Scroll handler ---
 
   function onScroll() {
-    headerEl.scrollLeft = viewport.scrollLeft
+    // Header scrolls naturally with content (it's inside scroll-content)
     scheduleRender()
   }
 
-  function onHeaderWheel(e: WheelEvent) {
-    viewport.scrollTop += e.deltaY
-    viewport.scrollLeft += e.deltaX
-  }
 
   viewport.addEventListener('scroll', onScroll, { passive: true })
-  headerEl.addEventListener('wheel', onHeaderWheel, { passive: true })
+
   window.addEventListener('resize', scheduleRender)
 
   // --- Column resize ---
@@ -1040,7 +1042,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
     // Remove event listeners
     viewport.removeEventListener('scroll', onScroll)
-    headerEl.removeEventListener('wheel', onHeaderWheel)
+
     container.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('resize', scheduleRender)
     document.removeEventListener('fullscreenchange', onFullscreenChange)
@@ -1313,15 +1315,50 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }
   }
 
+  // Precompute cumulative left offsets for pinned columns
+  let pinnedLeftOffsets: number[] = []
+  function recomputePinnedOffsets() {
+    pinnedLeftOffsets = new Array(columns.length).fill(-1)
+    let cumLeft = 0
+    for (let c = 0; c < columns.length; c++) {
+      if (pinnedColumns.has(c)) {
+        pinnedLeftOffsets[c] = cumLeft
+        cumLeft += colWidths[c]
+      }
+    }
+  }
+  recomputePinnedOffsets()
+
+  function applyCellPinStyle(cell: HTMLElement, colIndex: number) {
+    if (pinnedColumns.has(colIndex)) {
+      cell.style.position = 'sticky'
+      cell.style.left = pinnedLeftOffsets[colIndex] + 'px'
+      cell.style.zIndex = '1'
+      cell.style.background = 'var(--panel)'
+      cell.style.boxShadow = '2px 0 4px rgba(0,0,0,0.04)'
+    } else {
+      cell.style.position = ''
+      cell.style.left = ''
+      cell.style.zIndex = ''
+      cell.style.background = ''
+      cell.style.boxShadow = ''
+    }
+  }
+
   function updatePinnedStyles() {
+    recomputePinnedOffsets()
     const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
     let cumulativeLeft = 0
     for (let c = 0; c < columns.length; c++) {
       const th = ths[c]
       const cells = document.querySelectorAll(`.pt-row .pt-cell:nth-child(${c + 1})`)
       if (pinnedColumns.has(c)) {
-        // Header: no sticky (scrolls via JS sync). Just z-index for paint order.
-        th.style.zIndex = '3'
+        // Header is now inside scroll content — sticky works correctly
+        th.style.position = 'sticky'
+        th.style.left = cumulativeLeft + 'px'
+        th.style.zIndex = '6'
+        th.style.background = 'color-mix(in srgb, var(--panel) 90%, var(--page) 10%)'
+        th.style.boxShadow = '2px 0 4px rgba(0,0,0,0.04)'
         cells.forEach(cell => {
           const el = cell as HTMLElement
           el.style.position = 'sticky'
@@ -1332,7 +1369,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         })
         cumulativeLeft += colWidths[c]
       } else {
+        th.style.position = ''
+        th.style.left = ''
         th.style.zIndex = ''
+        th.style.background = ''
+        th.style.boxShadow = ''
         cells.forEach(cell => {
           const el = cell as HTMLElement
           el.style.position = ''

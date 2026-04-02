@@ -176,8 +176,9 @@ h1 {
 /* --- Header --- */
 
 .pt-header {
-  flex-shrink: 0;
-  overflow-x: hidden;
+  position: sticky;
+  top: 0;
+  z-index: 5;
   border-bottom: 1px solid var(--rule);
   background: color-mix(in srgb, var(--panel) 90%, var(--page) 10%);
 }
