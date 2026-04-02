@@ -206,14 +206,14 @@ h1 {
 
 .pt-th-top {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 2px;
 }
 
 .pt-type-icon {
-  font: 400 9px/1 var(--font);
+  font: 400 10px/1 var(--font);
   color: var(--muted);
-  opacity: 0.5;
+  opacity: 0.45;
   flex-shrink: 0;
   text-transform: none;
   letter-spacing: normal;
