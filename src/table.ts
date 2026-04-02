@@ -1,5 +1,6 @@
 import { prepare, layout, type PreparedText } from '@chenglou/pretext'
 import { renderColumnSummary, unmountColumnSummary } from './sparkline'
+import { mountColumnMenu, unmountColumnMenu, type ColumnAction } from './column-menu'
 import {
   NumericAccumulator,
   TimestampAccumulator,
@@ -134,6 +135,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   // Sort state
   let sortState: SortState = null
+
+  // Pinned columns
+  const pinnedColumns = new Set<number>([0]) // first column pinned by default
 
   // viewIndices: sorted position → data row (filtered + sorted)
   let viewIndices: Int32Array
@@ -384,6 +388,23 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     summaryEl.addEventListener('click', (e) => e.stopPropagation())
     th.appendChild(summaryEl)
     summaryContainers.push(summaryEl)
+
+    // Right-click context menu
+    th.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
+      mountColumnMenu(
+        {
+          colIndex: c,
+          colName: columns[c].label,
+          colType: columns[c].columnType,
+          isPinned: pinnedColumns.has(c),
+          sortDirection: sortState?.col === c ? sortState.dir : null,
+          x: e.clientX,
+          y: e.clientY,
+        },
+        handleColumnAction,
+      )
+    })
 
     if (c < columns.length - 1) {
       const handle = document.createElement('div')
@@ -1026,6 +1047,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     for (const el of summaryContainers) {
       unmountColumnSummary(el)
     }
+    unmountColumnMenu()
 
     // Clear DOM
     container.innerHTML = ''
@@ -1233,6 +1255,80 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   function notifyChange() {
     options?.onChange?.(getState())
+  }
+
+  // --- Column context menu action handler ---
+
+  function handleColumnAction(colIndex: number, action: ColumnAction) {
+    switch (action.kind) {
+      case 'sort':
+        if (sortState?.col === colIndex && sortState.dir === action.direction) {
+          sortState = null // toggle off
+        } else {
+          sortState = { col: colIndex, dir: action.direction }
+        }
+        updateSortUI()
+        applyFilterAndSort()
+        viewport.scrollTop = 0
+        for (const pr of pool) { pr.assignedRow = -1; pr.el.style.display = 'none' }
+        scheduleRender()
+        notifyChange()
+        break
+
+      case 'pin':
+        pinnedColumns.add(colIndex)
+        updatePinnedStyles()
+        break
+
+      case 'unpin':
+        pinnedColumns.delete(colIndex)
+        updatePinnedStyles()
+        break
+
+      case 'cast':
+        // TODO: implement column type casting via nteract-predicate
+        console.log(`Cast column ${colIndex} to ${action.targetType}`)
+        break
+    }
+  }
+
+  function updatePinnedStyles() {
+    const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
+    let cumulativeLeft = 0
+    for (let c = 0; c < columns.length; c++) {
+      const th = ths[c]
+      const cells = document.querySelectorAll(`.pt-row .pt-cell:nth-child(${c + 1})`)
+      if (pinnedColumns.has(c)) {
+        th.style.position = 'sticky'
+        th.style.left = cumulativeLeft + 'px'
+        th.style.zIndex = '3'
+        th.style.background = 'color-mix(in srgb, var(--panel) 90%, var(--page) 10%)'
+        th.style.boxShadow = '2px 0 4px rgba(0,0,0,0.04)'
+        cells.forEach(cell => {
+          const el = cell as HTMLElement
+          el.style.position = 'sticky'
+          el.style.left = cumulativeLeft + 'px'
+          el.style.zIndex = '1'
+          el.style.background = 'var(--panel)'
+          el.style.boxShadow = '2px 0 4px rgba(0,0,0,0.04)'
+        })
+        cumulativeLeft += colWidths[c]
+      } else {
+        th.style.position = ''
+        th.style.left = ''
+        th.style.zIndex = ''
+        th.style.background = ''
+        th.style.boxShadow = ''
+        cells.forEach(cell => {
+          const el = cell as HTMLElement
+          el.style.position = ''
+          el.style.left = ''
+          el.style.zIndex = ''
+          el.style.background = ''
+          el.style.boxShadow = ''
+        })
+      }
+    }
   }
 
   return {
