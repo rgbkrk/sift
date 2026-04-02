@@ -851,6 +851,13 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   function onScroll() {
     headerEl.scrollLeft = viewport.scrollLeft
+    // Keep pinned header cells fixed by counter-transforming the scroll
+    const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
+    for (const colIdx of pinnedColumns) {
+      if (colIdx < ths.length) {
+        ths[colIdx].style.transform = `translateX(${viewport.scrollLeft}px)`
+      }
+    }
     scheduleRender()
   }
 
