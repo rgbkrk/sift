@@ -149,6 +149,56 @@ describe('createTable', () => {
     })
   })
 
+  describe('state API', () => {
+    it('getSort returns null initially', () => {
+      expect(engine.getSort()).toBeNull()
+    })
+
+    it('setSort sets sort state', async () => {
+      engine.setSort('name', 'asc')
+      await flushRAF()
+      const sort = engine.getSort()
+      expect(sort).toEqual({ column: 'name', direction: 'asc' })
+    })
+
+    it('getFilters returns empty array initially', () => {
+      expect(engine.getFilters()).toEqual([])
+    })
+
+    it('getFilters returns active filters', async () => {
+      engine.setFilter(2, { kind: 'range', min: 10, max: 50 })
+      await flushRAF()
+      const filters = engine.getFilters()
+      expect(filters).toHaveLength(1)
+      expect(filters[0].column).toBe('score')
+      expect(filters[0].filter).toEqual({ kind: 'range', min: 10, max: 50 })
+    })
+
+    it('getState returns full state', async () => {
+      engine.setSort('score', 'desc')
+      engine.setFilter(3, { kind: 'boolean', value: true })
+      await flushRAF()
+      const state = engine.getState()
+      expect(state.sort).toEqual({ column: 'score', direction: 'desc' })
+      expect(state.filters).toHaveLength(1)
+      expect(state.totalCount).toBe(50)
+      expect(state.filteredCount).toBeLessThanOrEqual(50)
+    })
+
+    it('onChange callback fires on filter change', async () => {
+      const onChange = vi.fn()
+      engine.destroy()
+      engine = createTable(container, data, { onChange })
+      await flushRAF()
+
+      engine.setFilter(2, { kind: 'range', min: 10, max: 50 })
+      await flushRAF()
+      expect(onChange).toHaveBeenCalled()
+      const state = onChange.mock.calls[0][0]
+      expect(state.filters).toHaveLength(1)
+    })
+  })
+
   describe('onBatchAppended', () => {
     it('updates row count when data grows', async () => {
       await flushRAF()
