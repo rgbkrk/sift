@@ -1078,7 +1078,13 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         (full.nullCount > 0 && filtered.nullCount === 0)
       return anyHidden ? 'Some values hidden' : null
     }
-    // Numeric/timestamp — handled via asterisk on label
+    // Numeric/timestamp — check if range narrowed
+    if ((full.kind === 'numeric' && filtered.kind === 'numeric') ||
+        (full.kind === 'timestamp' && filtered.kind === 'timestamp')) {
+      if (full.min !== filtered.min || full.max !== filtered.max) {
+        return 'values hidden'
+      }
+    }
     return null
   }
 
@@ -1094,18 +1100,10 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       if (existing) existing.remove()
 
       const f = filters[c]
-      const colType = columns[c].columnType
-      const isNumericType = colType === 'numeric' || colType === 'timestamp'
 
-      // Reset label
       if (label) {
         label.style.color = f ? 'var(--accent)' : ''
-        // Asterisk on numeric/timestamp columns when others are filtered
-        if (!f && active && isNumericType) {
-          label.textContent = columns[c].label + ' *'
-        } else {
-          label.textContent = columns[c].label
-        }
+        label.textContent = columns[c].label
       }
 
       if (active) {
