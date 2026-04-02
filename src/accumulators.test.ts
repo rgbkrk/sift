@@ -6,6 +6,8 @@ import {
   BooleanAccumulator,
   formatCell,
   BIN_COUNT,
+  refineColumnType,
+  isNullSentinel,
 } from './accumulators'
 import type { NumericColumnSummary, TimestampColumnSummary, CategoricalColumnSummary, BooleanColumnSummary } from './table'
 
@@ -202,5 +204,64 @@ describe('formatCell', () => {
   it('stringifies numbers and strings', () => {
     expect(formatCell('numeric', 42)).toBe('42')
     expect(formatCell('categorical', 'hello')).toBe('hello')
+  })
+})
+
+describe('isNullSentinel', () => {
+  it('recognizes common null sentinels', () => {
+    expect(isNullSentinel('?')).toBe(true)
+    expect(isNullSentinel('N/A')).toBe(true)
+    expect(isNullSentinel('NA')).toBe(true)
+    expect(isNullSentinel('n/a')).toBe(true)
+    expect(isNullSentinel('NULL')).toBe(true)
+    expect(isNullSentinel('None')).toBe(true)
+    expect(isNullSentinel('-')).toBe(true)
+    expect(isNullSentinel('')).toBe(true)
+  })
+
+  it('does not flag normal values', () => {
+    expect(isNullSentinel('hello')).toBe(false)
+    expect(isNullSentinel('42')).toBe(false)
+    expect(isNullSentinel('Private')).toBe(false)
+  })
+})
+
+describe('refineColumnType', () => {
+  it('does not change non-categorical types', () => {
+    const result = refineColumnType('numeric', [1, 2, 3])
+    expect(result.type).toBe('numeric')
+    expect(result.hasNullSentinels).toBe(false)
+  })
+
+  it('refines string dates to timestamp', () => {
+    const values = ['2019-06-23', '2018-10-19', '2020-01-15', '2019-07-01', '2021-03-28']
+    const result = refineColumnType('categorical', values)
+    expect(result.type).toBe('timestamp')
+  })
+
+  it('does not refine mixed strings as timestamp', () => {
+    const values = ['hello', '2019-06-23', 'world', 'foo', 'bar']
+    const result = refineColumnType('categorical', values)
+    expect(result.type).toBe('categorical')
+  })
+
+  it('detects null sentinels in categorical data', () => {
+    const values = ['Private', '?', 'Self-emp', '?', 'Federal-gov']
+    const result = refineColumnType('categorical', values)
+    expect(result.hasNullSentinels).toBe(true)
+  })
+
+  it('ignores null sentinels when determining date type', () => {
+    // Dates + some "?" sentinels should still detect as timestamp
+    const values = ['2019-06-23', '?', '2018-10-19', '?', '2020-01-15', '2019-07-01']
+    const result = refineColumnType('categorical', values)
+    expect(result.type).toBe('timestamp')
+    expect(result.hasNullSentinels).toBe(true)
+  })
+
+  it('handles slash-separated dates', () => {
+    const values = ['01/15/2020', '12/25/2019', '06/30/2021']
+    const result = refineColumnType('categorical', values)
+    expect(result.type).toBe('timestamp')
   })
 })
