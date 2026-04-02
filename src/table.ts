@@ -353,6 +353,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const topRow = document.createElement('div')
     topRow.className = 'pt-th-top'
 
+    const label = document.createElement('span')
+    label.className = 'pt-th-label'
+    label.textContent = columns[c].label
+    topRow.appendChild(label)
+
     const typeIcon = document.createElement('span')
     typeIcon.className = 'pt-type-icon'
     typeIcon.textContent = columns[c].columnType === 'numeric' ? '#'
@@ -361,11 +366,6 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       : 'Aa'
     typeIcon.title = columns[c].columnType
     topRow.appendChild(typeIcon)
-
-    const label = document.createElement('span')
-    label.className = 'pt-th-label'
-    label.textContent = columns[c].label
-    topRow.appendChild(label)
 
     if (columns[c].sortable) {
       const arrow = document.createElement('span')
