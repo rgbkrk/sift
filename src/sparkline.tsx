@@ -1,4 +1,5 @@
 import { createRoot, type Root } from 'react-dom/client'
+import { createPortal } from 'react-dom'
 import { useRef, useCallback, useState, useMemo, useEffect } from 'react'
 import { BarChart } from 'semiotic/ordinal'
 import type {
@@ -183,18 +184,24 @@ function VisibleOverlay({ bins, visibleBins, width }: {
 const POPOVER_ROW_HEIGHT = 30
 const POPOVER_MAX_VISIBLE = 8
 
-function CategoryPopover({ allCategories, activeSet, onFilter, onClose }: {
+function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRef }: {
   allCategories: CategoryEntry[]
   activeSet: Set<string> | null
   onFilter: FilterCallback
   onClose: () => void
+  anchorRef: React.RefObject<HTMLElement | null>
 }) {
   const [search, setSearch] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
 
   useEffect(() => {
     inputRef.current?.focus()
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect()
+      setPos({ top: rect.bottom + 4, left: rect.left })
+    }
   }, [])
 
   // Close on Escape
@@ -250,8 +257,8 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose }: {
   function selectAll() { onFilter(null) }
   function clearAll() { onFilter({ kind: 'set', values: new Set<string>() }) }
 
-  return (
-    <div ref={popoverRef} className="pt-cat-popover">
+  return createPortal(
+    <div ref={popoverRef} className="pt-cat-popover" style={{ position: 'fixed', top: pos.top, left: pos.left }}>
       <input
         ref={inputRef}
         className="pt-cat-popover-search"
@@ -305,7 +312,8 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose }: {
       {filtered.length === 0 && (
         <div className="pt-cat-popover-empty">No matches</div>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -317,6 +325,7 @@ function CategoricalBars({ summary, activeFilter, onFilter }: {
   onFilter: FilterCallback
 }) {
   const [popoverOpen, setPopoverOpen] = useState(false)
+  const othersRef = useRef<HTMLDivElement>(null)
 
   const items = [
     ...summary.topCategories.map(c => ({ label: c.label, count: c.count, pct: c.pct, isOthers: false })),
@@ -333,12 +342,13 @@ function CategoricalBars({ summary, activeFilter, onFilter }: {
   const activeSet = activeFilter?.kind === 'set' ? activeFilter.values : null
 
   return (
-    <div className="pt-cat-summary" style={{ position: 'relative' }}>
+    <div className="pt-cat-summary">
       {items.map(item => {
         const isActive = activeSet ? activeSet.has(item.label) : true
         return (
           <div
             key={item.label}
+            ref={item.isOthers ? othersRef : undefined}
             className={`pt-cat-row pt-cat-clickable`}
             style={{ opacity: activeSet && !isActive && !item.isOthers ? 0.3 : 1 }}
             onClick={item.isOthers
@@ -370,6 +380,7 @@ function CategoricalBars({ summary, activeFilter, onFilter }: {
           activeSet={activeSet}
           onFilter={onFilter}
           onClose={() => setPopoverOpen(false)}
+          anchorRef={othersRef}
         />
       )}
     </div>
