@@ -199,6 +199,32 @@ describe('createTable', () => {
     })
   })
 
+  describe('accessibility', () => {
+    it('container has role="grid" and is focusable', async () => {
+      await flushRAF()
+      expect(container.getAttribute('role')).toBe('grid')
+      expect(container.tabIndex).toBe(0)
+    })
+
+    it('header cells have role="columnheader"', async () => {
+      await flushRAF()
+      const headers = container.querySelectorAll('.pt-th')
+      expect(headers.length).toBe(4)
+      for (const h of headers) {
+        expect(h.getAttribute('role')).toBe('columnheader')
+      }
+    })
+
+    it('sorted column gets aria-sort attribute', async () => {
+      await flushRAF()
+      engine.setSort('name', 'asc')
+      await flushRAF()
+      const headers = container.querySelectorAll('.pt-th')
+      expect(headers[1].getAttribute('aria-sort')).toBe('ascending')
+      expect(headers[0].hasAttribute('aria-sort')).toBe(false)
+    })
+  })
+
   describe('onBatchAppended', () => {
     it('updates row count when data grows', async () => {
       await flushRAF()

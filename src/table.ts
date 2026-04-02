@@ -317,6 +317,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   container.innerHTML = ''
   container.classList.add('pt-table-container')
+  container.setAttribute('role', 'grid')
+  container.setAttribute('aria-label', 'Data table')
 
   // Header
   const headerEl = document.createElement('div')
@@ -329,6 +331,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   for (let c = 0; c < columns.length; c++) {
     const th = document.createElement('div')
     th.className = 'pt-th'
+    th.setAttribute('role', 'columnheader')
     th.style.width = colWidths[c] + 'px'
     th.dataset.col = String(c)
 
@@ -827,17 +830,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       sortState = { col, dir: 'asc' }
     }
 
-    const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
-    for (let c = 0; c < columns.length; c++) {
-      const arrow = ths[c].querySelector('.pt-sort-arrow')
-      if (!arrow) continue
-      if (sortState && sortState.col === c) {
-        arrow.textContent = sortState.dir === 'asc' ? ' ↑' : ' ↓'
-      } else {
-        arrow.textContent = ''
-      }
-    }
-
+    updateSortUI()
     applyFilterAndSort()
     // Reset vertical scroll but preserve horizontal position
     viewport.scrollTop = 0
@@ -847,6 +840,21 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }
     scheduleRender()
     notifyChange()
+  }
+
+  function updateSortUI() {
+    const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
+    for (let c = 0; c < columns.length; c++) {
+      const arrow = ths[c].querySelector('.pt-sort-arrow')
+      if (!arrow) continue
+      if (sortState && sortState.col === c) {
+        arrow.textContent = sortState.dir === 'asc' ? ' ↑' : ' ↓'
+        ths[c].setAttribute('aria-sort', sortState.dir === 'asc' ? 'ascending' : 'descending')
+      } else {
+        arrow.textContent = ''
+        ths[c].removeAttribute('aria-sort')
+      }
+    }
   }
 
   // --- Batch append handler ---
@@ -893,6 +901,51 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   scheduleRender()
 
+  // --- Keyboard navigation ---
+
+  container.tabIndex = 0
+  container.style.outline = 'none'
+
+  function onKeyDown(e: KeyboardEvent) {
+    const oneRow = LINE_HEIGHT + CELL_PAD_V
+    const pageH = viewport.clientHeight
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        viewport.scrollTop += oneRow
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        viewport.scrollTop -= oneRow
+        break
+      case 'PageDown':
+        e.preventDefault()
+        viewport.scrollTop += pageH
+        break
+      case 'PageUp':
+        e.preventDefault()
+        viewport.scrollTop -= pageH
+        break
+      case 'Home':
+        e.preventDefault()
+        viewport.scrollTop = 0
+        break
+      case 'End':
+        e.preventDefault()
+        viewport.scrollTop = viewport.scrollHeight
+        break
+      case 'Escape':
+        if (hasActiveFilters()) {
+          e.preventDefault()
+          clearAllFilters()
+        }
+        break
+    }
+  }
+
+  container.addEventListener('keydown', onKeyDown)
+
   // --- Destroy ---
 
   function destroy() {
@@ -905,6 +958,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     // Remove event listeners
     viewport.removeEventListener('scroll', onScroll)
     headerEl.removeEventListener('wheel', onHeaderWheel)
+    container.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('resize', scheduleRender)
     document.removeEventListener('fullscreenchange', onFullscreenChange)
 
@@ -963,17 +1017,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     if (colIndex === -1) return
     sortState = { col: colIndex, dir: direction }
 
-    const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
-    for (let c = 0; c < columns.length; c++) {
-      const arrow = ths[c].querySelector('.pt-sort-arrow')
-      if (!arrow) continue
-      if (sortState && sortState.col === c) {
-        arrow.textContent = sortState.dir === 'asc' ? ' ↑' : ' ↓'
-      } else {
-        arrow.textContent = ''
-      }
-    }
-
+    updateSortUI()
     applyFilterAndSort()
     viewport.scrollTop = 0
     for (const pr of pool) {
