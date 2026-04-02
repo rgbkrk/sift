@@ -1,16 +1,38 @@
 {
   "name": "pretext-table",
-  "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./lib/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "types": "./src/index.ts"
+    },
+    "./style.css": "./src/style.css"
+  },
+  "files": [
+    "lib",
+    "src"
+  ],
   "scripts": {
     "generate": "npx tsx src/generate-data.ts",
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:lib": "tsc && vite build --config vite.lib.config.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18",
+    "apache-arrow": ">=15"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
