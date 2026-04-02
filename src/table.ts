@@ -58,9 +58,19 @@ export type TableData = {
   columnSummaries: ColumnSummary[]
 }
 
+// --- Filter types ---
+
+export type RangeFilter = { kind: 'range'; min: number; max: number }
+export type SetFilter = { kind: 'set'; values: Set<string> }
+export type BooleanFilter = { kind: 'boolean'; value: boolean }
+export type ColumnFilter = RangeFilter | SetFilter | BooleanFilter | null
+
 export type TableEngine = {
   onBatchAppended(): void
   destroy(): void
+  setFilter(colIndex: number, filter: ColumnFilter): void
+  clearFilter(colIndex: number): void
+  clearAllFilters(): void
 }
 
 type SortState = { col: number; dir: 'asc' | 'desc' } | null
@@ -82,16 +92,22 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   // Mutable row count — grows as batches arrive
   let rowCount = data.rowCount
 
+  // Filter state — one per column, null = no filter
+  const filters: ColumnFilter[] = columns.map(() => null)
+  let filteredCount = rowCount
+
   // Sort state
   let sortState: SortState = null
-  let sortedIndices: Int32Array
+
+  // viewIndices: sorted position → data row (filtered + sorted)
+  let viewIndices: Int32Array
 
   // Growable typed arrays with capacity doubling
   let capacity = Math.max(8192, rowCount)
   let rowHeights = new Float64Array(capacity)
   let rowPositions = new Float64Array(capacity + 1)
-  sortedIndices = new Int32Array(capacity)
-  for (let i = 0; i < rowCount; i++) sortedIndices[i] = i
+  viewIndices = new Int32Array(capacity)
+  for (let i = 0; i < rowCount; i++) viewIndices[i] = i
 
   let totalHeight = 0
   let heightsDirty = true
@@ -106,8 +122,8 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
     newPositions.set(rowPositions.subarray(0, rowCount + 1))
     rowPositions = newPositions
     const newSorted = new Int32Array(capacity)
-    newSorted.set(sortedIndices.subarray(0, rowCount))
-    sortedIndices = newSorted
+    newSorted.set(viewIndices.subarray(0, rowCount))
+    viewIndices = newSorted
   }
 
   // Per-cell cache: prepared text + last laid-out width/height
@@ -135,7 +151,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   // --- Compute heights ---
 
   function computeRowHeight(sortedRow: number): number {
-    const dataRow = sortedIndices[sortedRow]
+    const dataRow = viewIndices[sortedRow]
     const cache = cellCaches[dataRow]
     if (!cache) return LINE_HEIGHT + CELL_PAD_V // estimate for unprepared rows
 
@@ -154,7 +170,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   }
 
   function recomputeAllHeights() {
-    for (let i = 0; i < rowCount; i++) {
+    for (let i = 0; i < filteredCount; i++) {
       rowHeights[i] = computeRowHeight(i)
     }
     rebuildPositions()
@@ -163,14 +179,14 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
 
   function rebuildPositions() {
     rowPositions[0] = 0
-    for (let i = 0; i < rowCount; i++) {
+    for (let i = 0; i < filteredCount; i++) {
       rowPositions[i + 1] = rowPositions[i] + rowHeights[i]
     }
-    totalHeight = rowPositions[rowCount]
+    totalHeight = rowPositions[filteredCount]
   }
 
   function rowAtOffset(offset: number): number {
-    let lo = 0, hi = rowCount
+    let lo = 0, hi = filteredCount
     while (lo < hi) {
       const mid = (lo + hi) >>> 1
       if (rowPositions[mid + 1] <= offset) lo = mid + 1
@@ -179,30 +195,68 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
     return lo
   }
 
-  // --- Sort ---
+  // --- Filter + Sort ---
 
-  function applySort() {
-    if (!sortState) {
-      for (let i = 0; i < rowCount; i++) sortedIndices[i] = i
+  function rowPassesFilters(dataRow: number): boolean {
+    for (let c = 0; c < columns.length; c++) {
+      const f = filters[c]
+      if (!f) continue
+      const raw = data.getCellRaw(dataRow, c)
+      switch (f.kind) {
+        case 'range': {
+          if (raw == null) return false
+          const v = Number(raw)
+          if (!Number.isFinite(v)) return false
+          if (v < f.min || v > f.max) return false
+          break
+        }
+        case 'set': {
+          const s = data.getCell(dataRow, c)
+          if (!f.values.has(s)) return false
+          break
+        }
+        case 'boolean': {
+          if (Boolean(raw) !== f.value) return false
+          break
+        }
+      }
+    }
+    return true
+  }
+
+  function hasActiveFilters(): boolean {
+    return filters.some(f => f !== null)
+  }
+
+  function applyFilterAndSort() {
+    // Step 1: filter
+    const filtered: number[] = []
+    if (hasActiveFilters()) {
+      for (let i = 0; i < rowCount; i++) {
+        if (rowPassesFilters(i)) filtered.push(i)
+      }
     } else {
+      for (let i = 0; i < rowCount; i++) filtered.push(i)
+    }
+    filteredCount = filtered.length
+
+    // Step 2: sort the filtered set
+    if (sortState) {
       const { col, dir } = sortState
       const colType = columns[col].columnType
       const isNumeric = colType === 'numeric' || colType === 'timestamp'
-      const indices = new Int32Array(rowCount)
-      for (let i = 0; i < rowCount; i++) indices[i] = i
-      indices.sort((a, b) => {
+      filtered.sort((a, b) => {
         let cmp: number
         if (isNumeric) {
           const rawA = data.getCellRaw(a, col)
           const rawB = data.getCellRaw(b, col)
           const va = rawA == null ? NaN : Number(rawA)
           const vb = rawB == null ? NaN : Number(rawB)
-          // Push NaN/null to the end regardless of direction
           const aOk = Number.isFinite(va) || va === Infinity || va === -Infinity
           const bOk = Number.isFinite(vb) || vb === Infinity || vb === -Infinity
           if (!aOk && !bOk) cmp = 0
-          else if (!aOk) return 1  // a goes to end
-          else if (!bOk) return -1 // b goes to end
+          else if (!aOk) return 1
+          else if (!bOk) return -1
           else cmp = va - vb
         } else if (colType === 'boolean') {
           const va = data.getCellRaw(a, col) ? 1 : 0
@@ -215,8 +269,14 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
         }
         return dir === 'asc' ? cmp : -cmp
       })
-      sortedIndices = indices
     }
+
+    // Step 3: write to viewIndices
+    if (filtered.length > capacity) growBuffers(filtered.length)
+    for (let i = 0; i < filtered.length; i++) {
+      viewIndices[i] = filtered[i]
+    }
+
     heightsDirty = true
   }
 
@@ -321,7 +381,14 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   const statDom = makeStatSpan('pt-stat-dom')
   const statFrame = makeStatSpan('pt-stat-frame')
 
-  statRows.textContent = `${rowCount.toLocaleString()} rows`
+  function updateRowCountDisplay() {
+    if (hasActiveFilters()) {
+      statRows.textContent = `${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`
+    } else {
+      statRows.textContent = `${rowCount.toLocaleString()} rows`
+    }
+  }
+  updateRowCountDisplay()
 
   // Fullscreen toggle
   const fullscreenBtn = document.createElement('button')
@@ -387,7 +454,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
       const binWidth = (summary.max - summary.min) / bins.length || 1
 
       for (let r = visFirst; r <= visLast; r++) {
-        const dataRow = sortedIndices[r]
+        const dataRow = viewIndices[r]
         const raw = data.getCellRaw(dataRow, c)
         if (raw == null) continue
         const v = Number(raw)
@@ -488,7 +555,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
       scrollContent.style.height = totalHeight + 'px'
     }
 
-    if (rowCount === 0) return
+    if (filteredCount === 0) return
 
     const scrollTop = viewport.scrollTop
     const viewportH = viewport.clientHeight
@@ -496,7 +563,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
     const first = Math.max(0, rowAtOffset(scrollTop) - OVERSCAN)
     const lastY = scrollTop + viewportH
     let last = rowAtOffset(lastY) + OVERSCAN
-    if (last >= rowCount) last = rowCount - 1
+    if (last >= filteredCount) last = filteredCount - 1
 
     for (const pr of pool) {
       if (pr.assignedRow !== -1 && (pr.assignedRow < first || pr.assignedRow > last)) {
@@ -507,7 +574,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
 
     let lazyPrepared = false
     for (let r = first; r <= last; r++) {
-      const dataRow = sortedIndices[r]
+      const dataRow = viewIndices[r]
 
       // Lazy-prepare cells on first visibility
       if (!cellCaches[dataRow]) {
@@ -550,7 +617,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
       }
       // Re-assign with corrected positions (no more lazy-prep this pass since we just did it)
       for (let r = first; r <= last; r++) {
-        const dataRow = sortedIndices[r]
+        const dataRow = viewIndices[r]
         const pr = getPooledRow()
         pr.assignedRow = r
         pr.el.style.display = ''
@@ -586,7 +653,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
     lastViewportHeight = viewportH
 
     const elapsed = performance.now() - t0
-    const rangeStr = `showing ${first}–${Math.min(last, rowCount - 1)}`
+    const rangeStr = `showing ${first}–${Math.min(last, filteredCount - 1)}`
     const domStr = `${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
     const frameStr = `${elapsed.toFixed(1)}ms frame`
     prevRange = updateStat(statRange, rangeStr, prevRange)
@@ -670,7 +737,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
       }
     }
 
-    applySort()
+    applyFilterAndSort()
     // Reset vertical scroll but preserve horizontal position
     viewport.scrollTop = 0
     for (const pr of pool) {
@@ -683,27 +750,17 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   // --- Batch append handler ---
 
   function onBatchAppended() {
-    const prevRowCount = rowCount
     const newRowCount = data.rowCount
     growBuffers(newRowCount)
 
     // Cells will be lazy-prepared when they enter the viewport
 
-    // Extend sorted indices
-    if (!sortState) {
-      for (let i = prevRowCount; i < newRowCount; i++) {
-        sortedIndices[i] = i
-      }
-    } else {
-      // Re-sort with new data included
-      rowCount = newRowCount
-      applySort()
-    }
-
     rowCount = newRowCount
+    // Re-filter and re-sort with new data
+    applyFilterAndSort()
 
     // Update stats and summaries
-    statRows.textContent = `${rowCount.toLocaleString()} rows`
+    updateRowCountDisplay()
     renderAllSummaries()
 
     heightsDirty = true
@@ -759,5 +816,35 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
     container.classList.remove('pt-table-container')
   }
 
-  return { onBatchAppended, destroy }
+  // --- Filter API ---
+
+  function onFilterChanged() {
+    applyFilterAndSort()
+    updateRowCountDisplay()
+    viewport.scrollTop = 0
+    for (const pr of pool) {
+      pr.assignedRow = -1
+      pr.el.style.display = 'none'
+    }
+    lastVisFirst = -1
+    lastVisLast = -1
+    scheduleRender()
+  }
+
+  function setFilter(colIndex: number, filter: ColumnFilter) {
+    filters[colIndex] = filter
+    onFilterChanged()
+  }
+
+  function clearFilter(colIndex: number) {
+    filters[colIndex] = null
+    onFilterChanged()
+  }
+
+  function clearAllFilters() {
+    for (let i = 0; i < filters.length; i++) filters[i] = null
+    onFilterChanged()
+  }
+
+  return { onBatchAppended, destroy, setFilter, clearFilter, clearAllFilters }
 }
