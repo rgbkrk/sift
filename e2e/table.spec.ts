@@ -40,16 +40,17 @@ test.describe('Table Viewer', () => {
   })
 
   test('sorts on column click', async ({ page }) => {
-    // Click the Score header to sort
+    // Click the Score header label area to sort (sort handler is on .pt-th-top)
     const scoreTh = page.locator('.pt-th', { hasText: 'SCORE' })
-    await scoreTh.click()
+    const scoreLabel = scoreTh.locator('.pt-th-top')
+    await scoreLabel.click()
     // Sort arrow should appear
     await expect(scoreTh.locator('.pt-sort-arrow')).toContainText('↑')
     // Click again for descending
-    await scoreTh.click()
+    await scoreLabel.click()
     await expect(scoreTh.locator('.pt-sort-arrow')).toContainText('↓')
     // Click again to clear
-    await scoreTh.click()
+    await scoreLabel.click()
     await expect(scoreTh.locator('.pt-sort-arrow')).toHaveText('')
   })
 

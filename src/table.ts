@@ -348,14 +348,16 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       arrow.className = 'pt-sort-arrow'
       arrow.textContent = ''
       topRow.appendChild(arrow)
-      th.style.cursor = 'pointer'
-      th.addEventListener('click', () => onSortClick(c))
+      topRow.style.cursor = 'pointer'
+      topRow.addEventListener('click', () => onSortClick(c))
     }
 
     th.appendChild(topRow)
 
     const summaryEl = document.createElement('div')
     summaryEl.className = 'pt-th-summary'
+    // Prevent clicks on summary charts (filter interactions) from triggering sort
+    summaryEl.addEventListener('click', (e) => e.stopPropagation())
     th.appendChild(summaryEl)
     summaryContainers.push(summaryEl)
 
@@ -476,6 +478,22 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   statsEl.append(statRows, sep(), statRange, sep(), statDom, sep(), statFrame, filterPillsEl, statsSpacer, fullscreenBtn)
   container.appendChild(statsEl)
+
+  // Expand columns to fill container width when there are few columns
+  {
+    const containerW = viewport.clientWidth
+    const totalW = colWidths.reduce((s, w) => s + w, 0)
+    if (containerW > 0 && totalW < containerW) {
+      const scale = containerW / totalW
+      const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
+      for (let c = 0; c < columns.length; c++) {
+        colWidths[c] = Math.round(colWidths[c] * scale)
+        ths[c].style.width = colWidths[c] + 'px'
+      }
+      updateScrollContentWidth()
+      heightsDirty = true
+    }
+  }
 
   function rebuildFilterPills() {
     filterPillsEl.innerHTML = ''
