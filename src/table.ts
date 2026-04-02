@@ -893,6 +893,44 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   scheduleRender()
 
+  // --- Click to copy cell value ---
+
+  const toast = document.createElement('div')
+  toast.className = 'pt-copy-toast'
+  toast.textContent = 'Copied'
+  container.appendChild(toast)
+  let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+  function showCopyToast(x: number, y: number) {
+    if (toastTimer) clearTimeout(toastTimer)
+    const rect = container.getBoundingClientRect()
+    toast.style.left = (x - rect.left) + 'px'
+    toast.style.top = (y - rect.top - 30) + 'px'
+    toast.classList.add('pt-copy-toast-visible')
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('pt-copy-toast-visible')
+      toastTimer = null
+    }, 1200)
+  }
+
+  function onCellClick(e: MouseEvent) {
+    const cell = (e.target as HTMLElement).closest('.pt-cell') as HTMLElement | null
+    if (!cell) return
+
+    // Get the text content (for badges, get the badge text)
+    const badge = cell.querySelector('.pt-badge')
+    const text = badge ? badge.textContent ?? '' : cell.textContent ?? ''
+    if (!text) return
+
+    navigator.clipboard.writeText(text).then(() => {
+      showCopyToast(e.clientX, e.clientY)
+    }).catch(() => {
+      // Fallback: select the text
+    })
+  }
+
+  viewport.addEventListener('click', onCellClick)
+
   // --- Destroy ---
 
   function destroy() {
@@ -904,7 +942,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
     // Remove event listeners
     viewport.removeEventListener('scroll', onScroll)
+    viewport.removeEventListener('click', onCellClick)
     headerEl.removeEventListener('wheel', onHeaderWheel)
+    if (toastTimer) clearTimeout(toastTimer)
     window.removeEventListener('resize', scheduleRender)
     document.removeEventListener('fullscreenchange', onFullscreenChange)
 

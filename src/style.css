@@ -494,6 +494,33 @@ h1 {
   opacity: 1;
 }
 
+/* --- Copy toast --- */
+
+.pt-copy-toast {
+  position: absolute;
+  pointer-events: none;
+  font: 600 11px/1.4 var(--font);
+  color: var(--panel);
+  background: var(--ink);
+  padding: 3px 10px;
+  border-radius: 6px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.pt-copy-toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Make cells show a subtle pointer cursor */
+.pt-cell {
+  cursor: default;
+}
+
 .pt-fullscreen-btn {
   background: none;
   border: 1px solid var(--rule);
