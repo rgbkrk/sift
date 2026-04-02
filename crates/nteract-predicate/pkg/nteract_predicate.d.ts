@@ -84,6 +84,13 @@ export function store_bool_counts(handle: number, col: number): Uint32Array;
 export function store_histogram(handle: number, col: number, num_bins: number): any;
 
 /**
+ * Sort a column and return sorted row indices.
+ * `ascending`: true for asc, false for desc.
+ * Nulls are always sorted to the end.
+ */
+export function store_sort_indices(handle: number, col: number, ascending: boolean): Uint32Array;
+
+/**
  * Compute value_counts for a column in a loaded store. Much faster than
  * the JS accumulator path since it iterates batches in Rust.
  */
@@ -123,6 +130,7 @@ export interface InitOutput {
     readonly num_rows: (a: number, b: number) => void;
     readonly store_bool_counts: (a: number, b: number, c: number) => void;
     readonly store_histogram: (a: number, b: number, c: number, d: number) => void;
+    readonly store_sort_indices: (a: number, b: number, c: number, d: number) => void;
     readonly store_value_counts: (a: number, b: number, c: number) => void;
     readonly filter_rows: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly histogram: (a: number, b: number, c: number, d: number, e: number) => void;

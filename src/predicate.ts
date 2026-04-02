@@ -21,6 +21,7 @@ type PredicateModule = {
   store_value_counts(handle: number, col: number): { label: string; count: number }[]
   store_histogram(handle: number, col: number, num_bins: number): { x0: number; x1: number; count: number }[]
   store_bool_counts(handle: number, col: number): Uint32Array
+  store_sort_indices(handle: number, col: number, ascending: boolean): Uint32Array
   // Compute (stateless, takes IPC bytes)
   value_counts(ipc_bytes: Uint8Array, column_index: number): { label: string; count: number }[]
   histogram(ipc_bytes: Uint8Array, column_index: number, num_bins: number): { x0: number; x1: number; count: number }[]
