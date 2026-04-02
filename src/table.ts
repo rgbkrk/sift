@@ -472,12 +472,25 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   scrollContent.appendChild(headerEl) // Header inside scroll content for natural H scroll
   scrollContent.appendChild(rowPool)
 
-  // Empty state overlay (shown when filters exclude all rows)
+  // Empty state (shown when filters exclude all rows)
   const emptyEl = document.createElement('div')
   emptyEl.className = 'pt-empty-state'
-  emptyEl.textContent = 'No matching rows'
   emptyEl.style.display = 'none'
-  viewport.appendChild(emptyEl)
+
+  const emptyText = document.createElement('div')
+  emptyText.className = 'pt-empty-text'
+  emptyText.textContent = 'No matching rows'
+
+  const emptyClearBtn = document.createElement('button')
+  emptyClearBtn.className = 'pt-empty-clear'
+  emptyClearBtn.textContent = 'Clear all filters'
+  emptyClearBtn.addEventListener('click', () => clearAllFilters())
+
+  emptyEl.appendChild(emptyText)
+  emptyEl.appendChild(emptyClearBtn)
+
+  // Empty state goes inside scroll content (after header, before row pool)
+  scrollContent.appendChild(emptyEl)
 
   viewport.appendChild(scrollContent)
   container.appendChild(viewport)
@@ -744,11 +757,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
     if (filteredCount === 0) {
       emptyEl.style.display = ''
-      scrollContent.style.display = 'none'
+      rowPool.style.display = 'none'
       return
     }
     emptyEl.style.display = 'none'
-    scrollContent.style.display = ''
+    rowPool.style.display = ''
 
     const scrollTop = viewport.scrollTop
     const viewportH = viewport.clientHeight
