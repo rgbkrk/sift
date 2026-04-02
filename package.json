@@ -26,19 +26,25 @@
     "test:e2e": "playwright test"
   },
   "peerDependencies": {
+    "apache-arrow": ">=15",
     "react": ">=18",
-    "react-dom": ">=18",
-    "apache-arrow": ">=15"
+    "react-dom": ">=18"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-dom": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@tailwindcss/vite": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "jsdom": "^29.0.1",
+    "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",
@@ -46,12 +52,18 @@
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.4",
+    "@radix-ui/react-context-menu": "^2.2.16",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-popover": "^1.1.15",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "apache-arrow": "^21.1.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "apache-arrow": ">=15",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "react": ">=18",
+    "react-dom": ">=18",
     "semiotic": "^3.2.2",
+    "tailwind-merge": "^3.5.0",
     "tslib": "^2.8.1"
   }
 }
