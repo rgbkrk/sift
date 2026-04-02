@@ -33,6 +33,7 @@ export type BooleanColumnSummary = {
   kind: 'boolean'
   trueCount: number
   falseCount: number
+  nullCount: number
   total: number
 }
 
@@ -259,13 +260,25 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
           else if (!bOk) return -1
           else cmp = va - vb
         } else if (colType === 'boolean') {
-          const va = data.getCellRaw(a, col) ? 1 : 0
-          const vb = data.getCellRaw(b, col) ? 1 : 0
-          cmp = va - vb
+          const rawA = data.getCellRaw(a, col)
+          const rawB = data.getCellRaw(b, col)
+          // Nulls always sort to the end
+          if (rawA == null && rawB == null) cmp = 0
+          else if (rawA == null) return 1
+          else if (rawB == null) return -1
+          else cmp = (rawA ? 1 : 0) - (rawB ? 1 : 0)
         } else {
-          const sa = data.getCell(a, col)
-          const sb = data.getCell(b, col)
-          cmp = sa < sb ? -1 : sa > sb ? 1 : 0
+          const rawA = data.getCellRaw(a, col)
+          const rawB = data.getCellRaw(b, col)
+          // Nulls always sort to the end
+          if (rawA == null && rawB == null) cmp = 0
+          else if (rawA == null) return 1
+          else if (rawB == null) return -1
+          else {
+            const sa = data.getCell(a, col)
+            const sb = data.getCell(b, col)
+            cmp = sa < sb ? -1 : sa > sb ? 1 : 0
+          }
         }
         return dir === 'asc' ? cmp : -cmp
       })
@@ -373,6 +386,14 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   rowPool.className = 'pt-row-pool'
 
   scrollContent.appendChild(rowPool)
+
+  // Empty state overlay (shown when filters exclude all rows)
+  const emptyEl = document.createElement('div')
+  emptyEl.className = 'pt-empty-state'
+  emptyEl.textContent = 'No matching rows'
+  emptyEl.style.display = 'none'
+  viewport.appendChild(emptyEl)
+
   viewport.appendChild(scrollContent)
   container.appendChild(viewport)
 
@@ -567,6 +588,15 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
     cellEl.textContent = ''
     cellEl.className = 'pt-cell'
 
+    // Null values get a distinct badge regardless of column type
+    if (raw == null) {
+      const badge = document.createElement('span')
+      badge.className = 'pt-badge pt-badge-null'
+      badge.textContent = 'null'
+      cellEl.appendChild(badge)
+      return
+    }
+
     switch (col.columnType) {
       case 'boolean': {
         const badge = document.createElement('span')
@@ -607,7 +637,13 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
       scrollContent.style.height = totalHeight + 'px'
     }
 
-    if (filteredCount === 0) return
+    if (filteredCount === 0) {
+      emptyEl.style.display = ''
+      scrollContent.style.display = 'none'
+      return
+    }
+    emptyEl.style.display = 'none'
+    scrollContent.style.display = ''
 
     const scrollTop = viewport.scrollTop
     const viewportH = viewport.clientHeight
