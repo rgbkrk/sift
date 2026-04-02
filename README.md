@@ -1,63 +1,46 @@
 # Sift
 
-A crossfilter data explorer built on [Arrow](https://arrow.apache.org/), [pretext](https://github.com/chenglou/pretext), and [Semiotic](https://semiotic.nteract.io/). The demo at [rgbkrk.github.io/sift](https://rgbkrk.github.io/sift/) streams datasets from HuggingFace directly in the browser.
+Fast dataframe viewer. [Pretext](https://github.com/chenglou/pretext) × [Arrow](https://arrow.apache.org/) × [Semiotic](https://semiotic.nteract.io/).
 
-Headed toward [`@nteract/data-explorer`](https://github.com/nteract) — a high-performance dataframe viewer for notebook environments.
+Virtual scroll, crossfilter summaries, WASM-native compute. Try it at [rgbkrk.github.io/sift](https://rgbkrk.github.io/sift/).
 
-## What it does
+Becoming [`@nteract/data-explorer`](https://github.com/nteract).
 
-- **Streams Arrow IPC** — data arrives in batches, table grows progressively
-- **DOM-free row heights** — pretext's `layout()` replaces `getBoundingClientRect` (~0.0002ms per cell)
-- **Crossfilter summaries** — header charts update to reflect filtered data
-- **Searchable category filter** — click "N others ▾" for a virtual-scrolling popover with search
-- **Brush to filter** — drag across histograms to set range filters
-- **HuggingFace datasets** — loads Parquet via `parquet-wasm`, 7 curated datasets
-- **Smart type detection** — string dates auto-promote to timestamp; null sentinels ("?", "N/A") recognized
-- **Dark mode** — system preference + manual toggle
-- **Keyboard navigation** — arrow keys, Page Up/Down, Home/End, Escape clears filters
+## Features
+
+- Stream Arrow IPC or load Parquet directly (via WASM, no server)
+- Crossfilter: filter one column, all summaries update
+- Brush histograms, click categories, toggle booleans
+- Searchable category popover for high-cardinality columns
+- 100k rows at 60fps. Column resize at 0.12ms/frame.
+- Dark mode, keyboard navigation, null visualization
+- 7 HuggingFace datasets built in
 
 ## Quick start
 
 ```sh
 npm install
 npm run generate   # 100k rows → public/data.arrow
-npm run dev        # http://localhost:5173
+npm run dev
 ```
 
-## Library
+## Use as a library
 
 ```tsx
 import { PretextTable } from './src/react'
 
-<PretextTable url="/data.arrow" onChange={state => console.log(state)} />
+<PretextTable url="/data.arrow" onChange={console.log} />
 ```
 
-Build the library bundle (35KB ESM, peer deps externalized):
+## WASM compute (`nteract-predicate`)
 
-```sh
-npm run build:lib   # → lib/index.js
-```
-
-## WASM compute (nteract-predicate)
-
-Rust/WASM compute kernels wrapping `arrow-rs` for filter, aggregate, and string search:
+Rust crate wrapping arrow-rs. Parquet reading, cell access, sorting, filtering, histograms — all in one 4.3MB WASM binary.
 
 ```sh
 cd crates/nteract-predicate
-wasm-pack build --target web --release   # → 912KB WASM
+wasm-pack build --target web --release
 ```
-
-Exposes: `value_counts`, `histogram`, `filter_rows`, `string_contains`.
-
-## Performance (100k rows)
-
-| Operation | Time |
-|-----------|------|
-| Scroll frame (avg) | 9.8ms |
-| Sort | 48ms |
-| Filter | 13ms |
-| Column resize frame | **0.12ms** |
 
 ## Stack
 
-[Pretext](https://github.com/chenglou/pretext) × [Arrow](https://arrow.apache.org/) × [Semiotic](https://semiotic.nteract.io/) × [Rust/WASM](https://rustwasm.github.io/) × Vite × TypeScript × React
+Pretext × Arrow × Semiotic × Rust/WASM × Vite × TypeScript × React
