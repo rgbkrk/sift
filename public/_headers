@@ -1,0 +1,20 @@
+# Cloudflare Pages custom headers
+# https://developers.cloudflare.com/pages/configuration/headers/
+
+# HTML: never cache (always get fresh index.html)
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Hashed assets: cache forever (Vite content-hashes filenames)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# WASM: cache for a day (changes on rebuild)
+/*.wasm
+  Cache-Control: public, max-age=86400
+
+# Data files: no cache (generated per deploy)
+/data.arrow
+  Cache-Control: no-cache

@@ -1,0 +1,14 @@
+# Cloudflare Pages configuration
+# https://developers.cloudflare.com/pages/
+
+name = "sift"
+compatibility_date = "2026-04-02"
+pages_build_output_dir = "dist"
+
+# Build configuration (also set in Cloudflare dashboard)
+# Build command: npm run generate && npm run build
+# Build output directory: dist
+# Root directory: /
+
+# Custom domain: sift.runt.run
+# Set up via Cloudflare dashboard: Pages → Custom domains → Add
