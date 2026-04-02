@@ -526,6 +526,28 @@ h1 {
   overflow-wrap: break-word;
 }
 
+/* --- Pinned first column --- */
+
+.pt-cell:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
+}
+
+.pt-row-alt .pt-cell:first-child {
+  background: color-mix(in srgb, var(--panel) 97%, var(--page));
+}
+
+.pt-th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: color-mix(in srgb, var(--panel) 90%, var(--page) 10%);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
+}
+
 /* --- Type-aware cells --- */
 
 .pt-cell-timestamp {
