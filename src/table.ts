@@ -336,13 +336,23 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   headerEl.appendChild(headerRowEl)
   container.appendChild(headerEl)
 
-  function renderAllSummaries() {
-    for (let c = 0; c < columns.length; c++) {
-      const summary = data.columnSummaries[c]
-      if (summary) {
-        renderColumnSummary(summaryContainers[c], summary, colWidths[c] - CELL_PAD_H)
-      }
+  // Create stable filter callbacks per column
+  const filterCallbacks: ((filter: ColumnFilter) => void)[] = columns.map((_, c) =>
+    (filter: ColumnFilter) => setFilter(c, filter)
+  )
+
+  function renderSummary(c: number, visibleBins?: number[]) {
+    const summary = data.columnSummaries[c]
+    if (summary) {
+      renderColumnSummary(
+        summaryContainers[c], summary, colWidths[c] - CELL_PAD_H,
+        visibleBins, filters[c], filterCallbacks[c],
+      )
     }
+  }
+
+  function renderAllSummaries() {
+    for (let c = 0; c < columns.length; c++) renderSummary(c)
   }
   renderAllSummaries()
 
@@ -465,12 +475,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
         visibleBins[idx]++
       }
 
-      renderColumnSummary(
-        summaryContainers[c],
-        summary,
-        colWidths[c] - CELL_PAD_H,
-        visibleBins,
-      )
+      renderSummary(c, visibleBins)
     }
   }
 
@@ -693,14 +698,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
       colWidths[colIndex] = Math.max(MIN_COL_WIDTH, startWidth + delta)
       const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
       ths[colIndex].style.width = colWidths[colIndex] + 'px'
-      const summary = data.columnSummaries[colIndex]
-      if (summary) {
-        renderColumnSummary(
-          summaryContainers[colIndex],
-          summary,
-          colWidths[colIndex] - CELL_PAD_H,
-        )
-      }
+      renderSummary(colIndex)
       updateScrollContentWidth()
       heightsDirty = true
       scheduleRender()
@@ -821,6 +819,7 @@ export function createTable(container: HTMLElement, data: TableData): TableEngin
   function onFilterChanged() {
     applyFilterAndSort()
     updateRowCountDisplay()
+    renderAllSummaries()
     viewport.scrollTop = 0
     for (const pr of pool) {
       pr.assignedRow = -1
