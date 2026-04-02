@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 public/data.arrow
+test-results/
+playwright-report/
 
 # Editor directories and files
 .vscode/*

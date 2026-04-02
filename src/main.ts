@@ -40,7 +40,7 @@ async function boot() {
   const app = document.getElementById('app')!
   app.innerHTML = '<div class="pt-loading">Loading data…</div>'
 
-  const response = await fetch('/data.arrow')
+  const response = await fetch(`${import.meta.env.BASE_URL}data.arrow`)
   if (!response.ok) {
     app.innerHTML =
       '<div class="pt-loading">Missing data.arrow — run <code>npm run generate</code> first.</div>'
