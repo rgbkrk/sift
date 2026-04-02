@@ -365,6 +365,12 @@ h1 {
   color: #9e3a24;
 }
 
+.pt-badge-null {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* --- Boolean summary in header --- */
 
 .pt-bool-summary {
@@ -388,9 +394,25 @@ h1 {
   background: #c4513a;
 }
 
+.pt-bool-null {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.08),
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
 .pt-bool-clickable {
   cursor: pointer;
   transition: opacity 100ms ease;
+}
+
+.pt-bool-null-label {
+  color: var(--muted);
+  opacity: 0.7;
+  font-style: italic;
 }
 
 .pt-bool-labels {
@@ -498,6 +520,18 @@ h1 {
 
 .pt-table-container:fullscreen .pt-viewport {
   flex: 1 1 0;
+}
+
+/* --- Empty state --- */
+
+.pt-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font: 14px/1.4 var(--font);
+  color: var(--muted);
+  padding: 40px 20px;
 }
 
 /* --- Scrollbar styling --- */

@@ -157,11 +157,13 @@ export class CategoricalAccumulator implements SummaryAccumulator {
 }
 
 export class BooleanAccumulator implements SummaryAccumulator {
-  trueCount = 0; falseCount = 0
+  trueCount = 0; falseCount = 0; nullCount = 0
 
   add(rawCol: unknown[], startRow: number, count: number) {
     for (let r = startRow; r < startRow + count; r++) {
-      if (rawCol[r]) this.trueCount++
+      const v = rawCol[r]
+      if (v == null) this.nullCount++
+      else if (v) this.trueCount++
       else this.falseCount++
     }
   }
@@ -171,6 +173,7 @@ export class BooleanAccumulator implements SummaryAccumulator {
       kind: 'boolean',
       trueCount: this.trueCount,
       falseCount: this.falseCount,
+      nullCount: this.nullCount,
       total: totalRows,
     } satisfies BooleanColumnSummary
   }

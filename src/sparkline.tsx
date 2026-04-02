@@ -241,9 +241,12 @@ function BooleanRatioBar({ summary, activeFilter, onFilter }: {
   activeFilter?: ColumnFilter
   onFilter: FilterCallback
 }) {
+  const nonNull = summary.trueCount + summary.falseCount
   const truePct = summary.total > 0 ? (summary.trueCount / summary.total) * 100 : 0
   const falsePct = summary.total > 0 ? (summary.falseCount / summary.total) * 100 : 0
+  const nullPct = summary.total > 0 ? (summary.nullCount / summary.total) * 100 : 0
   const activeValue = activeFilter?.kind === 'boolean' ? activeFilter.value : null
+  const hasNulls = summary.nullCount > 0
 
   return (
     <div className="pt-bool-summary">
@@ -258,10 +261,18 @@ function BooleanRatioBar({ summary, activeFilter, onFilter }: {
           style={{ width: `${falsePct}%`, opacity: activeValue === true ? 0.3 : 1 }}
           onClick={() => onFilter(activeValue === false ? null : { kind: 'boolean', value: false })}
         />
+        {hasNulls && (
+          <div
+            className="pt-bool-null"
+            style={{ width: `${nullPct}%` }}
+            title={`${summary.nullCount} null values`}
+          />
+        )}
       </div>
       <div className="pt-bool-labels">
-        <span>Yes {truePct.toFixed(0)}%</span>
-        <span>No {falsePct.toFixed(0)}%</span>
+        <span>Yes {nonNull > 0 ? truePct.toFixed(0) : 0}%</span>
+        {hasNulls && <span className="pt-bool-null-label">{nullPct.toFixed(0)}% null</span>}
+        <span>No {nonNull > 0 ? falsePct.toFixed(0) : 0}%</span>
       </div>
     </div>
   )

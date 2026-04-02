@@ -77,6 +77,17 @@ describe('NumericAccumulator', () => {
     expect(result.max).toBe(40)
     expect(result.bins.reduce((s, b) => s + b.count, 0)).toBe(6)
   })
+
+  it('handles BigInt values by coercing to Number', () => {
+    const acc = new NumericAccumulator()
+    const data: unknown[] = [BigInt(10), BigInt(20), BigInt(5), BigInt(30)]
+    acc.add(data, 0, data.length)
+    const result = acc.snapshot() as NumericColumnSummary
+    expect(result).not.toBeNull()
+    expect(result.min).toBe(5)
+    expect(result.max).toBe(30)
+    expect(result.bins.reduce((s, b) => s + b.count, 0)).toBe(4)
+  })
 })
 
 describe('TimestampAccumulator', () => {
@@ -155,6 +166,18 @@ describe('BooleanAccumulator', () => {
     const result = acc.snapshot(3) as BooleanColumnSummary
     expect(result.trueCount).toBe(3)
     expect(result.falseCount).toBe(0)
+    expect(result.nullCount).toBe(0)
+  })
+
+  it('tracks nulls separately from false', () => {
+    const acc = new BooleanAccumulator()
+    const data = [true, null, false, null, true, undefined]
+    acc.add(data, 0, data.length)
+    const result = acc.snapshot(data.length) as BooleanColumnSummary
+    expect(result.trueCount).toBe(2)
+    expect(result.falseCount).toBe(1)
+    expect(result.nullCount).toBe(3)
+    expect(result.total).toBe(6)
   })
 })
 
