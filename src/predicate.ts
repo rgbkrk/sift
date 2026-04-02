@@ -16,8 +16,11 @@ let mod: PredicateModule | null = null
 
 async function ensureModule(): Promise<PredicateModule> {
   if (mod) return mod
-  // Dynamic import of the wasm-pack output
-  const wasm = await import('../crates/compute/pkg/nteract_predicate.js')
+  // Dynamic import with string indirection so TypeScript doesn't
+  // require the WASM pkg to exist at type-check time.
+  // The pkg is built separately: cd crates/compute && wasm-pack build --target web
+  const path = '../crates/compute/pkg/nteract_predicate.js'
+  const wasm = await import(/* @vite-ignore */ path)
   await wasm.default()
   mod = wasm as unknown as PredicateModule
   return mod
