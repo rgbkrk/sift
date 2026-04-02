@@ -1,0 +1,16 @@
+{
+  "name": "nteract-predicate",
+  "type": "module",
+  "description": "WASM predicate engine for @nteract/data-explorer: filter, aggregate, string search on Arrow data",
+  "version": "0.1.0",
+  "files": [
+    "nteract_predicate_bg.wasm",
+    "nteract_predicate.js",
+    "nteract_predicate.d.ts"
+  ],
+  "main": "nteract_predicate.js",
+  "types": "nteract_predicate.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

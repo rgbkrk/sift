@@ -2,6 +2,7 @@ use wasm_bindgen::prelude::*;
 
 mod summary;
 mod filter;
+mod store;
 
 /// Initialize the WASM module. Call once before using other functions.
 #[wasm_bindgen(start)]

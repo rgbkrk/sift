@@ -27,4 +27,3 @@ playwright-report/
 *.sln
 *.sw?
 crates/nteract-predicate/target/
-crates/nteract-predicate/pkg/

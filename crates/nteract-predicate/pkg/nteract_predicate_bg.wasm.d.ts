@@ -1,0 +1,23 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const col_names: (a: number, b: number) => void;
+export const col_type: (a: number, b: number, c: number) => void;
+export const free: (a: number) => void;
+export const get_cell_f64: (a: number, b: number, c: number, d: number) => void;
+export const get_cell_string: (a: number, b: number, c: number, d: number) => void;
+export const is_null: (a: number, b: number, c: number, d: number) => void;
+export const load_ipc: (a: number, b: number, c: number) => void;
+export const load_parquet: (a: number, b: number, c: number) => void;
+export const num_cols: (a: number, b: number) => void;
+export const num_rows: (a: number, b: number) => void;
+export const filter_rows: (a: number, b: number, c: number, d: number, e: number) => void;
+export const histogram: (a: number, b: number, c: number, d: number, e: number) => void;
+export const init: () => void;
+export const string_contains: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const value_counts: (a: number, b: number, c: number, d: number) => void;
+export const __wbindgen_export: (a: number, b: number) => number;
+export const __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_add_to_stack_pointer: (a: number) => number;
+export const __wbindgen_export3: (a: number, b: number, c: number) => void;
+export const __wbindgen_start: () => void;
