@@ -9,6 +9,8 @@ import {
 } from './table'
 import {
   detectColumnType,
+  refineColumnType,
+  isNullSentinel,
   formatCell,
   NumericAccumulator,
   TimestampAccumulator,
@@ -206,6 +208,10 @@ async function loadHuggingFace(dataset: DatasetEntry, tableRoot: HTMLElement) {
     buildTableState(reader.schema, dataset)
 
   let totalRows = 0
+  // Track columns where string values were refined to timestamps (need parsing)
+  const refinedToTimestamp = new Set<number>()
+  // Track columns with null sentinel replacement
+  const hasNullSentinels = new Set<number>()
 
   function appendBatch(batch: RecordBatch) {
     const batchRows = batch.numRows
@@ -213,7 +219,19 @@ async function loadHuggingFace(dataset: DatasetEntry, tableRoot: HTMLElement) {
     for (let c = 0; c < fieldNames.length; c++) {
       const col = batch.getChild(fieldNames[c])!
       for (let r = 0; r < batchRows; r++) {
-        const val = col.get(r)
+        let val: unknown = col.get(r)
+
+        // Replace null sentinels with actual null
+        if (hasNullSentinels.has(c) && val != null && isNullSentinel(String(val))) {
+          val = null
+        }
+
+        // Parse string dates to epoch ms for refined timestamp columns
+        if (refinedToTimestamp.has(c) && val != null) {
+          const parsed = new Date(String(val)).getTime()
+          val = Number.isFinite(parsed) ? parsed : null
+        }
+
         rawCols[c].push(val)
         stringCols[c].push(formatCell(columns[c].columnType, val))
       }
@@ -230,6 +248,58 @@ async function loadHuggingFace(dataset: DatasetEntry, tableRoot: HTMLElement) {
     return
   }
   appendBatch(firstResult.value)
+
+  // Refine column types by sampling actual data from the first batch.
+  // This catches string columns that are really timestamps (e.g. "2019-06-23")
+  // and converts null sentinels (e.g. "?", "N/A") to actual nulls.
+  for (let c = 0; c < columns.length; c++) {
+    const refinement = refineColumnType(columns[c].columnType, rawCols[c])
+
+    if (refinement.hasNullSentinels) {
+      hasNullSentinels.add(c)
+      // Replace sentinel values with null in raw and re-format strings
+      for (let r = 0; r < rawCols[c].length; r++) {
+        if (rawCols[c][r] != null && isNullSentinel(String(rawCols[c][r]))) {
+          rawCols[c][r] = null
+          stringCols[c][r] = ''
+        }
+      }
+    }
+
+    if (refinement.type !== columns[c].columnType) {
+      const refined = refinement.type
+      if (refined === 'timestamp') refinedToTimestamp.add(c)
+      columns[c].columnType = refined
+      columns[c].numeric = refined === 'numeric'
+      columns[c].width = autoWidth(columns[c].key, refined)
+
+      // For string→timestamp refinement, parse date strings to epoch ms
+      if (refined === 'timestamp') {
+        for (let r = 0; r < rawCols[c].length; r++) {
+          const val = rawCols[c][r]
+          if (val != null) {
+            const parsed = new Date(String(val)).getTime()
+            rawCols[c][r] = Number.isFinite(parsed) ? parsed : null
+          }
+        }
+      }
+
+      // Re-format all cells with the new type
+      for (let r = 0; r < rawCols[c].length; r++) {
+        stringCols[c][r] = formatCell(refined, rawCols[c][r])
+      }
+
+      // Rebuild the accumulator for this column
+      switch (refined) {
+        case 'numeric': accumulators[c] = new NumericAccumulator(); break
+        case 'timestamp': accumulators[c] = new TimestampAccumulator(); break
+        case 'boolean': accumulators[c] = new BooleanAccumulator(); break
+        case 'categorical': accumulators[c] = new CategoricalAccumulator(stringCols[c]); break
+      }
+      accumulators[c].add(rawCols[c], 0, totalRows)
+      tableData.columnSummaries[c] = accumulators[c].snapshot(totalRows)
+    }
+  }
 
   tableRoot.innerHTML = ''
   currentEngine = createTable(tableRoot, tableData)

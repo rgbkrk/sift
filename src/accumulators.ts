@@ -24,6 +24,65 @@ export function detectColumnType(field: Field): ColumnType {
   return 'categorical'
 }
 
+// --- Data-driven type refinement ---
+
+// Values commonly used as null sentinels in CSV-sourced datasets
+const NULL_SENTINELS = new Set(['?', 'N/A', 'NA', 'n/a', 'na', 'NULL', 'null', 'None', 'none', '-', ''])
+
+// ISO-like date patterns: YYYY-MM-DD, YYYY/MM/DD, MM/DD/YYYY, DD-Mon-YYYY, etc.
+const DATE_PATTERN = /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$|^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/
+
+/**
+ * Check if a string value is a common null sentinel.
+ */
+export function isNullSentinel(val: string): boolean {
+  return NULL_SENTINELS.has(val)
+}
+
+/**
+ * Refine a column type by sampling actual data values from the first batch.
+ * Only refines 'categorical' columns — other types are already well-detected
+ * from the Arrow schema.
+ *
+ * Returns the refined type and whether null sentinels were detected.
+ */
+export function refineColumnType(
+  schemaType: ColumnType,
+  values: unknown[],
+  sampleSize = 100,
+): { type: ColumnType; hasNullSentinels: boolean } {
+  if (schemaType !== 'categorical') {
+    return { type: schemaType, hasNullSentinels: false }
+  }
+
+  const sample = values.slice(0, sampleSize)
+  let dateCount = 0
+  let nullSentinelCount = 0
+  let nonNullCount = 0
+
+  for (const val of sample) {
+    if (val == null) continue
+    const s = String(val)
+    if (NULL_SENTINELS.has(s)) {
+      nullSentinelCount++
+      continue
+    }
+    nonNullCount++
+    if (DATE_PATTERN.test(s)) {
+      dateCount++
+    }
+  }
+
+  const hasNullSentinels = nullSentinelCount > 0
+
+  // If >80% of non-null, non-sentinel values look like dates, treat as timestamp
+  if (nonNullCount > 0 && dateCount / nonNullCount > 0.8) {
+    return { type: 'timestamp', hasNullSentinels }
+  }
+
+  return { type: 'categorical', hasNullSentinels }
+}
+
 // --- Cell formatting ---
 
 export function formatCell(columnType: ColumnType, val: unknown): string {
