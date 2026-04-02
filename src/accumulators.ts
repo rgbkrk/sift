@@ -60,7 +60,7 @@ export class NumericAccumulator implements SummaryAccumulator {
     for (let r = startRow; r < startRow + count; r++) {
       const raw = rawCol[r]
       if (raw == null) { this.nullCount++; continue }
-      const v = raw as number
+      const v = typeof raw === 'bigint' ? Number(raw) : raw as number
       if (Number.isNaN(v)) { this.nanCount++; continue }
       if (v === Infinity) { this.infCount++; continue }
       if (v === -Infinity) { this.negInfCount++; continue }
@@ -96,7 +96,10 @@ export class TimestampAccumulator implements SummaryAccumulator {
 
   add(rawCol: unknown[], startRow: number, count: number) {
     for (let r = startRow; r < startRow + count; r++) {
-      const v = Number(rawCol[r])
+      const raw = rawCol[r]
+      if (raw == null) continue
+      const v = typeof raw === 'bigint' ? Number(raw) : Number(raw)
+      if (!Number.isFinite(v)) continue
       this.allValues.push(v)
       if (v < this.min) this.min = v
       if (v > this.max) this.max = v
