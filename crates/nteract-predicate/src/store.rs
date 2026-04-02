@@ -542,3 +542,56 @@ pub fn get_viewport_by_indices(handle: u32, indices: &[u32]) -> Result<Vec<u8>, 
     .map_err(|e| JsValue::from_str(&e))?
     .map_err(|e: String| JsValue::from_str(&e))
 }
+
+/// Get Parquet metadata: number of row groups and total rows.
+/// Returns [num_row_groups, total_rows] as Vec<u32>.
+#[wasm_bindgen]
+pub fn parquet_metadata(parquet_bytes: &[u8]) -> Result<Vec<u32>, JsValue> {
+    let bytes = bytes::Bytes::copy_from_slice(parquet_bytes);
+    let builder = ParquetRecordBatchReaderBuilder::try_new(bytes)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let metadata = builder.metadata();
+    let num_row_groups = metadata.num_row_groups() as u32;
+    let total_rows = metadata.file_metadata().num_rows() as u32;
+    Ok(vec![num_row_groups, total_rows])
+}
+
+/// Load a single Parquet row group into a new or existing store.
+/// If handle is 0, creates a new store and returns the handle.
+/// If handle is non-zero, appends the row group to the existing store.
+#[wasm_bindgen]
+pub fn load_parquet_row_group(parquet_bytes: &[u8], row_group: usize, handle: u32) -> Result<u32, JsValue> {
+    let bytes = bytes::Bytes::copy_from_slice(parquet_bytes);
+    let builder = ParquetRecordBatchReaderBuilder::try_new(bytes)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let schema = builder.schema().clone();
+
+    let reader = builder
+        .with_row_groups(vec![row_group])
+        .build()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    let mut batches = Vec::new();
+    for batch in reader {
+        batches.push(batch.map_err(|e| JsValue::from_str(&e.to_string()))?);
+    }
+
+    if handle == 0 {
+        // Create new store
+        Ok(store_batches(batches, &schema))
+    } else {
+        // Append to existing store
+        with_stores(|stores| {
+            if let Some(store) = stores.get_mut(&handle) {
+                for batch in batches {
+                    store.batch_offsets.push(store.total_rows);
+                    store.total_rows += batch.num_rows();
+                    store.batches.push(batch);
+                }
+                Ok(handle)
+            } else {
+                Err(JsValue::from_str(&format!("Invalid handle: {}", handle)))
+            }
+        })
+    }
+}

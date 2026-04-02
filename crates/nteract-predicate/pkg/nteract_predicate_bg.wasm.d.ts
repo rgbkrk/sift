@@ -11,8 +11,10 @@ export const get_viewport_by_indices: (a: number, b: number, c: number, d: numbe
 export const is_null: (a: number, b: number, c: number, d: number) => void;
 export const load_ipc: (a: number, b: number, c: number) => void;
 export const load_parquet: (a: number, b: number, c: number) => void;
+export const load_parquet_row_group: (a: number, b: number, c: number, d: number, e: number) => void;
 export const num_cols: (a: number, b: number) => void;
 export const num_rows: (a: number, b: number) => void;
+export const parquet_metadata: (a: number, b: number, c: number) => void;
 export const store_bool_counts: (a: number, b: number, c: number) => void;
 export const store_histogram: (a: number, b: number, c: number, d: number) => void;
 export const store_sort_indices: (a: number, b: number, c: number, d: number) => void;

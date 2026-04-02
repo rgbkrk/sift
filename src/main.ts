@@ -18,7 +18,7 @@ import {
 } from './accumulators'
 import { DATASETS, type DatasetEntry } from './datasets'
 import { resolveHuggingFaceParquetUrl } from './parquet-loader'
-import { loadParquet as wasmLoadParquet, getModuleSync } from './predicate'
+import { getModuleSync } from './predicate'
 import { createWasmTableData } from './wasm-table-data'
 import './style.css'
 
@@ -231,13 +231,42 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
   const parquetBytes = new Uint8Array(await resp.arrayBuffer())
 
   renderLoadingSkeleton(tableRoot, 'Loading into WASM…')
-  const handle = await wasmLoadParquet(parquetBytes)
+  const mod = getModuleSync()
+
+  // Get metadata to know how many row groups
+  const meta = mod.parquet_metadata(parquetBytes)
+  const numRowGroups = meta[0]
+
+  // Load first row group → mount table immediately
+  const handle = mod.load_parquet_row_group(parquetBytes, 0, 0)
 
   const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
   tableData.prefetchViewport = prefetchViewport
 
-  // Build summaries directly in WASM — no JS accumulator loop
-  const mod = getModuleSync()
+  // Compute initial summaries from first row group
+  updateWasmSummaries(mod, handle, tableData, columns)
+
+  tableRoot.innerHTML = ''
+  currentEngine = createTable(tableRoot, tableData)
+
+  // Stream remaining row groups progressively
+  for (let g = 1; g < numRowGroups; g++) {
+    // Yield to the event loop so the UI stays responsive
+    await new Promise(r => setTimeout(r, 0))
+    mod.load_parquet_row_group(parquetBytes, g, handle)
+    tableData.rowCount = mod.num_rows(handle)
+    updateWasmSummaries(mod, handle, tableData, columns)
+    currentEngine!.onBatchAppended()
+  }
+}
+
+/** Compute summaries from the WASM store and update tableData. */
+function updateWasmSummaries(
+  mod: ReturnType<typeof getModuleSync>,
+  handle: number,
+  tableData: TableData,
+  columns: Column[],
+) {
   const numRows = mod.num_rows(handle)
   const BIN_COUNT = 25
 
@@ -246,14 +275,13 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
     switch (col.columnType) {
       case 'categorical': {
         const counts = mod.store_value_counts(handle, c) as { label: string; count: number }[]
-        const totalRows = numRows
         const allCategories = counts.map(({ label, count }) => ({
           label, count,
-          pct: Math.round((count / totalRows) * 1000) / 10,
+          pct: Math.round((count / numRows) * 1000) / 10,
         }))
         const topCategories = allCategories.slice(0, 3)
         const othersCount = counts.slice(3).reduce((s, e) => s + e.count, 0)
-        const othersPct = Math.round((othersCount / totalRows) * 1000) / 10
+        const othersPct = Math.round((othersCount / numRows) * 1000) / 10
         return {
           kind: 'categorical' as const,
           uniqueCount: counts.length,
@@ -286,9 +314,6 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
       }
     }
   })
-
-  tableRoot.innerHTML = ''
-  currentEngine = createTable(tableRoot, tableData)
 }
 
 function renderLoadingSkeleton(tableRoot: HTMLElement, status: string) {

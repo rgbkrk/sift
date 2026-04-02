@@ -310,6 +310,33 @@ export function load_parquet(parquet_bytes) {
 }
 
 /**
+ * Load a single Parquet row group into a new or existing store.
+ * If handle is 0, creates a new store and returns the handle.
+ * If handle is non-zero, appends the row group to the existing store.
+ * @param {Uint8Array} parquet_bytes
+ * @param {number} row_group
+ * @param {number} handle
+ * @returns {number}
+ */
+export function load_parquet_row_group(parquet_bytes, row_group, handle) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(parquet_bytes, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.load_parquet_row_group(retptr, ptr0, len0, row_group, handle);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return r0 >>> 0;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Get the number of columns in a loaded dataset.
  * @param {number} handle
  * @returns {number}
@@ -346,6 +373,33 @@ export function num_rows(handle) {
             throw takeObject(r1);
         }
         return r0 >>> 0;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Get Parquet metadata: number of row groups and total rows.
+ * Returns [num_row_groups, total_rows] as Vec<u32>.
+ * @param {Uint8Array} parquet_bytes
+ * @returns {Uint32Array}
+ */
+export function parquet_metadata(parquet_bytes) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(parquet_bytes, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.parquet_metadata(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        if (r3) {
+            throw takeObject(r2);
+        }
+        var v2 = getArrayU32FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export3(r0, r1 * 4, 4);
+        return v2;
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
     }

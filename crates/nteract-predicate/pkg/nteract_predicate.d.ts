@@ -78,6 +78,13 @@ export function load_ipc(ipc_bytes: Uint8Array): number;
 export function load_parquet(parquet_bytes: Uint8Array): number;
 
 /**
+ * Load a single Parquet row group into a new or existing store.
+ * If handle is 0, creates a new store and returns the handle.
+ * If handle is non-zero, appends the row group to the existing store.
+ */
+export function load_parquet_row_group(parquet_bytes: Uint8Array, row_group: number, handle: number): number;
+
+/**
  * Get the number of columns in a loaded dataset.
  */
 export function num_cols(handle: number): number;
@@ -86,6 +93,12 @@ export function num_cols(handle: number): number;
  * Get the number of rows in a loaded dataset.
  */
 export function num_rows(handle: number): number;
+
+/**
+ * Get Parquet metadata: number of row groups and total rows.
+ * Returns [num_row_groups, total_rows] as Vec<u32>.
+ */
+export function parquet_metadata(parquet_bytes: Uint8Array): Uint32Array;
 
 /**
  * Count boolean values in a column: returns [true_count, false_count, null_count].
@@ -142,8 +155,10 @@ export interface InitOutput {
     readonly is_null: (a: number, b: number, c: number, d: number) => void;
     readonly load_ipc: (a: number, b: number, c: number) => void;
     readonly load_parquet: (a: number, b: number, c: number) => void;
+    readonly load_parquet_row_group: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly num_cols: (a: number, b: number) => void;
     readonly num_rows: (a: number, b: number) => void;
+    readonly parquet_metadata: (a: number, b: number, c: number) => void;
     readonly store_bool_counts: (a: number, b: number, c: number) => void;
     readonly store_histogram: (a: number, b: number, c: number, d: number) => void;
     readonly store_sort_indices: (a: number, b: number, c: number, d: number) => void;

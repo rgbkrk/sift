@@ -22,9 +22,8 @@ test.describe('HuggingFace Dataset Loading', () => {
     await page.goto('/?dataset=adult-census')
     await page.waitForSelector('.pt-table-container', { timeout: 90_000 })
 
-    const statsText = await page.locator('.pt-stat-rows').textContent()
-    const rowCount = parseInt(statsText!.replace(/,/g, ''))
-    expect(rowCount).toBeGreaterThan(30000)
+    // Wait for all row groups to load (progressive loading shows partial counts first)
+    await expect(page.locator('.pt-stat-rows')).toContainText(/3[0-9],/, { timeout: 60_000 })
 
     await expect(page.locator('.pt-cat-summary').first()).toBeVisible({ timeout: 5_000 })
   })
