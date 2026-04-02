@@ -351,6 +351,15 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const topRow = document.createElement('div')
     topRow.className = 'pt-th-top'
 
+    const typeIcon = document.createElement('span')
+    typeIcon.className = 'pt-type-icon'
+    typeIcon.textContent = columns[c].columnType === 'numeric' ? '#'
+      : columns[c].columnType === 'boolean' ? '◉'
+      : columns[c].columnType === 'timestamp' ? '◷'
+      : 'Aa'
+    typeIcon.title = columns[c].columnType
+    topRow.appendChild(typeIcon)
+
     const label = document.createElement('span')
     label.className = 'pt-th-label'
     label.textContent = columns[c].label

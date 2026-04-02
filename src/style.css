@@ -210,6 +210,15 @@ h1 {
   gap: 2px;
 }
 
+.pt-type-icon {
+  font: 400 9px/1 var(--font);
+  color: var(--muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .pt-filter-line {
   font: 400 10px/1.2 var(--font);
   color: var(--accent);
