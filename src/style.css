@@ -211,13 +211,15 @@ h1 {
 }
 
 .pt-type-icon {
+  position: absolute;
+  top: 8px;
+  right: 12px;
   font: 400 10px/1 var(--font);
   color: var(--muted);
-  opacity: 0.45;
-  flex-shrink: 0;
+  opacity: 0.4;
   text-transform: none;
   letter-spacing: normal;
-  margin-left: 3px;
+  pointer-events: none;
 }
 
 .pt-filter-line {

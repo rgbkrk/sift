@@ -358,15 +358,6 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     label.textContent = columns[c].label
     topRow.appendChild(label)
 
-    const typeIcon = document.createElement('span')
-    typeIcon.className = 'pt-type-icon'
-    typeIcon.textContent = columns[c].columnType === 'numeric' ? '#'
-      : columns[c].columnType === 'boolean' ? '◉'
-      : columns[c].columnType === 'timestamp' ? '◷'
-      : 'Aa'
-    typeIcon.title = columns[c].columnType
-    topRow.appendChild(typeIcon)
-
     if (columns[c].sortable) {
       const arrow = document.createElement('span')
       arrow.className = 'pt-sort-arrow'
@@ -377,6 +368,15 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }
 
     th.appendChild(topRow)
+
+    const typeIcon = document.createElement('span')
+    typeIcon.className = 'pt-type-icon'
+    typeIcon.textContent = columns[c].columnType === 'numeric' ? '#'
+      : columns[c].columnType === 'boolean' ? '◉'
+      : columns[c].columnType === 'timestamp' ? '◷'
+      : 'Aa'
+    typeIcon.title = columns[c].columnType
+    th.appendChild(typeIcon)
 
     const summaryEl = document.createElement('div')
     summaryEl.className = 'pt-th-summary'
