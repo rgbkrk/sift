@@ -28,6 +28,12 @@ jobs:
       - run: npm ci
       - run: npm run generate
       - run: npm run build
+      - name: Copy WASM pkg into dist for dynamic import
+        run: |
+          mkdir -p dist/crates/nteract-predicate/pkg
+          cp crates/nteract-predicate/pkg/nteract_predicate.js dist/crates/nteract-predicate/pkg/
+          cp crates/nteract-predicate/pkg/nteract_predicate_bg.wasm dist/crates/nteract-predicate/pkg/
+          cp crates/nteract-predicate/pkg/nteract_predicate_bg.wasm.d.ts dist/crates/nteract-predicate/pkg/ 2>/dev/null || true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
