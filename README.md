@@ -40,7 +40,3 @@ Rust crate wrapping arrow-rs. Parquet reading, cell access, sorting, filtering, 
 cd crates/nteract-predicate
 wasm-pack build --target web --release
 ```
-
-## Stack
-
-Pretext × Arrow × Semiotic × Rust/WASM × Vite × TypeScript × React
