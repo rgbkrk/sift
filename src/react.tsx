@@ -276,7 +276,7 @@ export function usePretextEngine(engine: TableEngine | null): PretextTableHandle
   }
 }
 
-// Re-export key types for consumer convenience
+// Re-export key types and utilities for consumer convenience
 export type {
   TableData,
   TableEngine,
@@ -285,3 +285,11 @@ export type {
   Column,
   ColumnType,
 }
+export {
+  engineStateToExplorerState,
+  explorerStateToJSON,
+  predicateToSQL,
+  predicateToPandas,
+  predicateToEnglish,
+} from './filter-schema'
+export type { ExplorerState, FilterPredicate, SortEntry } from './filter-schema'

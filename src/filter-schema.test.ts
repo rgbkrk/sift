@@ -4,10 +4,12 @@ import {
   predicateToPandas,
   predicateToEnglish,
   columnFiltersToPredicates,
+  engineStateToExplorerState,
   explorerStateToJSON,
   type FilterPredicate,
   type ExplorerState,
 } from './filter-schema'
+import type { TableEngineState } from './table'
 
 describe('predicateToSQL', () => {
   it('between', () => {
@@ -247,5 +249,98 @@ describe('explorerStateToJSON', () => {
     expect(parsed.sort).toEqual(state.sort)
     expect(parsed.resultCount).toBe(100)
     expect(parsed.totalCount).toBe(1000)
+  })
+})
+
+describe('engineStateToExplorerState', () => {
+  it('converts empty state', () => {
+    const state: TableEngineState = {
+      sort: null,
+      filters: [],
+      filteredCount: 100,
+      totalCount: 100,
+    }
+    const result = engineStateToExplorerState(state)
+    expect(result.filters).toEqual([])
+    expect(result.sort).toEqual([])
+    expect(result.resultCount).toBe(100)
+    expect(result.totalCount).toBe(100)
+  })
+
+  it('converts sort state', () => {
+    const state: TableEngineState = {
+      sort: { column: 'score', direction: 'desc' },
+      filters: [],
+      filteredCount: 50,
+      totalCount: 100,
+    }
+    const result = engineStateToExplorerState(state)
+    expect(result.sort).toEqual([{ column: 'score', direction: 'desc' }])
+  })
+
+  it('converts range filter to between predicate', () => {
+    const state: TableEngineState = {
+      sort: null,
+      filters: [{ column: 'score', filter: { kind: 'range', min: 10, max: 50 } }],
+      filteredCount: 30,
+      totalCount: 100,
+    }
+    const result = engineStateToExplorerState(state)
+    expect(result.filters).toEqual([{ column: 'score', op: 'between', value: [10, 50] }])
+  })
+
+  it('converts set filter to in predicate', () => {
+    const state: TableEngineState = {
+      sort: null,
+      filters: [{ column: 'dept', filter: { kind: 'set', values: new Set(['Eng', 'Design']) } }],
+      filteredCount: 20,
+      totalCount: 100,
+    }
+    const result = engineStateToExplorerState(state)
+    expect(result.filters).toHaveLength(1)
+    expect(result.filters[0]).toMatchObject({ column: 'dept', op: 'in' })
+    expect((result.filters[0] as any).value).toContain('Eng')
+    expect((result.filters[0] as any).value).toContain('Design')
+  })
+
+  it('converts boolean filter to eq predicate', () => {
+    const state: TableEngineState = {
+      sort: null,
+      filters: [{ column: 'active', filter: { kind: 'boolean', value: true } }],
+      filteredCount: 60,
+      totalCount: 100,
+    }
+    const result = engineStateToExplorerState(state)
+    expect(result.filters).toEqual([{ column: 'active', op: 'eq', value: true }])
+  })
+
+  it('round-trips to SQL', () => {
+    const state: TableEngineState = {
+      sort: { column: 'name', direction: 'asc' },
+      filters: [
+        { column: 'score', filter: { kind: 'range', min: 50, max: 100 } },
+        { column: 'active', filter: { kind: 'boolean', value: true } },
+      ],
+      filteredCount: 25,
+      totalCount: 100,
+    }
+    const explorer = engineStateToExplorerState(state)
+    const sql = explorer.filters.map(f => predicateToSQL(f))
+    expect(sql).toContain('"score" BETWEEN 50 AND 100')
+    expect(sql).toContain('"active" = true')
+  })
+
+  it('round-trips to JSON', () => {
+    const state: TableEngineState = {
+      sort: { column: 'id', direction: 'asc' },
+      filters: [{ column: 'dept', filter: { kind: 'set', values: new Set(['Eng']) } }],
+      filteredCount: 10,
+      totalCount: 50,
+    }
+    const json = explorerStateToJSON(engineStateToExplorerState(state))
+    const parsed = JSON.parse(json)
+    expect(parsed.sort).toEqual([{ column: 'id', direction: 'asc' }])
+    expect(parsed.filters[0].op).toBe('in')
+    expect(parsed.resultCount).toBe(10)
   })
 })

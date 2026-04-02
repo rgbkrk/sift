@@ -192,7 +192,7 @@ export function predicateToEnglish(p: FilterPredicate): string {
 
 // --- Conversion from our internal ColumnFilter types ---
 
-import type { ColumnFilter } from './table'
+import type { ColumnFilter, TableEngineState } from './table'
 
 export function columnFiltersToPredicates(
   columns: { key: string }[],
@@ -216,6 +216,39 @@ export function columnFiltersToPredicates(
     }
   }
   return predicates
+}
+
+/**
+ * Convert a TableEngineState (from the engine API) to a portable ExplorerState
+ * suitable for Automerge persistence, AI consumption, or cross-system compilation.
+ */
+export function engineStateToExplorerState(state: TableEngineState): ExplorerState {
+  const filters: FilterPredicate[] = []
+  for (const { column, filter } of state.filters) {
+    if (!filter) continue
+    switch (filter.kind) {
+      case 'range':
+        filters.push({ column, op: 'between', value: [filter.min, filter.max] })
+        break
+      case 'set':
+        filters.push({ column, op: 'in', value: [...filter.values] })
+        break
+      case 'boolean':
+        filters.push({ column, op: 'eq', value: filter.value })
+        break
+    }
+  }
+
+  const sort: SortEntry[] = state.sort
+    ? [{ column: state.sort.column, direction: state.sort.direction }]
+    : []
+
+  return {
+    filters,
+    sort,
+    resultCount: state.filteredCount,
+    totalCount: state.totalCount,
+  }
 }
 
 export function explorerStateToJSON(state: ExplorerState): string {
