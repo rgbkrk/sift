@@ -1,0 +1,10 @@
+/Users/kylekelley/code/src/github.com/rgbkrk/pretext-table/crates/compute/target/wasm32-unknown-unknown/release/deps/arrow_row-0bbd6f7ad55a0769.d: /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/lib.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/fixed.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/list.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/variable.rs
+
+/Users/kylekelley/code/src/github.com/rgbkrk/pretext-table/crates/compute/target/wasm32-unknown-unknown/release/deps/libarrow_row-0bbd6f7ad55a0769.rlib: /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/lib.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/fixed.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/list.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/variable.rs
+
+/Users/kylekelley/code/src/github.com/rgbkrk/pretext-table/crates/compute/target/wasm32-unknown-unknown/release/deps/libarrow_row-0bbd6f7ad55a0769.rmeta: /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/lib.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/fixed.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/list.rs /Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/variable.rs
+
+/Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/lib.rs:
+/Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/fixed.rs:
+/Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/list.rs:
+/Users/kylekelley/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-row-54.3.1/src/variable.rs:

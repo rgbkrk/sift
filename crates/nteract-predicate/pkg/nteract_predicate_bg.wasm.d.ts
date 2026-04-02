@@ -8,6 +8,7 @@ export const get_cell_f64: (a: number, b: number, c: number, d: number) => void;
 export const get_cell_string: (a: number, b: number, c: number, d: number) => void;
 export const is_null: (a: number, b: number, c: number, d: number) => void;
 export const load_ipc: (a: number, b: number, c: number) => void;
+export const load_parquet: (a: number, b: number, c: number) => void;
 export const num_cols: (a: number, b: number) => void;
 export const num_rows: (a: number, b: number) => void;
 export const filter_rows: (a: number, b: number, c: number, d: number, e: number) => void;

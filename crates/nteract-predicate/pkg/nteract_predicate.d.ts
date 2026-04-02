@@ -58,6 +58,12 @@ export function is_null(handle: number, row: number, col: number): boolean;
 export function load_ipc(ipc_bytes: Uint8Array): number;
 
 /**
+ * Load Parquet bytes into WASM memory. Returns a handle for subsequent operations.
+ * This replaces the need for parquet-wasm — one WASM binary for everything.
+ */
+export function load_parquet(parquet_bytes: Uint8Array): number;
+
+/**
  * Get the number of columns in a loaded dataset.
  */
 export function num_cols(handle: number): number;
@@ -96,6 +102,7 @@ export interface InitOutput {
     readonly get_cell_string: (a: number, b: number, c: number, d: number) => void;
     readonly is_null: (a: number, b: number, c: number, d: number) => void;
     readonly load_ipc: (a: number, b: number, c: number) => void;
+    readonly load_parquet: (a: number, b: number, c: number) => void;
     readonly num_cols: (a: number, b: number) => void;
     readonly num_rows: (a: number, b: number) => void;
     readonly filter_rows: (a: number, b: number, c: number, d: number, e: number) => void;

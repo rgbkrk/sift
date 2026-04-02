@@ -229,6 +229,30 @@ export function load_ipc(ipc_bytes) {
 }
 
 /**
+ * Load Parquet bytes into WASM memory. Returns a handle for subsequent operations.
+ * This replaces the need for parquet-wasm — one WASM binary for everything.
+ * @param {Uint8Array} parquet_bytes
+ * @returns {number}
+ */
+export function load_parquet(parquet_bytes) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(parquet_bytes, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.load_parquet(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return r0 >>> 0;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Get the number of columns in a loaded dataset.
  * @param {number} handle
  * @returns {number}

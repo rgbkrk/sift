@@ -2,6 +2,7 @@ use arrow::array::{Array, AsArray, Float64Array, Int32Array, Int64Array, StringA
 use arrow::datatypes::{DataType, TimeUnit};
 use arrow::ipc::reader::StreamReader;
 use arrow::record_batch::RecordBatch;
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Mutex;
@@ -63,29 +64,19 @@ where F: FnOnce(&DataStore) -> R {
     })
 }
 
-/// Load Arrow IPC bytes into WASM memory. Returns a handle for subsequent operations.
-#[wasm_bindgen]
-pub fn load_ipc(ipc_bytes: &[u8]) -> Result<u32, JsValue> {
-    let cursor = Cursor::new(ipc_bytes);
-    let reader = StreamReader::try_new(cursor, None)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-    let schema = reader.schema();
+/// Store a vec of RecordBatches, returning a handle.
+fn store_batches(batches: Vec<RecordBatch>, schema: &arrow::datatypes::Schema) -> u32 {
     let num_cols = schema.fields().len();
     let col_names: Vec<String> = schema.fields().iter().map(|f| f.name().clone()).collect();
     let col_types: Vec<String> = schema.fields().iter()
         .map(|f| DataStore::detect_col_type(f.data_type()).to_string())
         .collect();
 
-    let mut batches = Vec::new();
     let mut batch_offsets = Vec::new();
     let mut total_rows = 0;
-
-    for batch in reader {
-        let batch = batch.map_err(|e| JsValue::from_str(&e.to_string()))?;
+    for batch in &batches {
         batch_offsets.push(total_rows);
         total_rows += batch.num_rows();
-        batches.push(batch);
     }
 
     let handle = {
@@ -106,7 +97,42 @@ pub fn load_ipc(ipc_bytes: &[u8]) -> Result<u32, JsValue> {
         });
     });
 
-    Ok(handle)
+    handle
+}
+
+/// Load Arrow IPC bytes into WASM memory. Returns a handle for subsequent operations.
+#[wasm_bindgen]
+pub fn load_ipc(ipc_bytes: &[u8]) -> Result<u32, JsValue> {
+    let cursor = Cursor::new(ipc_bytes);
+    let reader = StreamReader::try_new(cursor, None)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let schema = reader.schema();
+
+    let mut batches = Vec::new();
+    for batch in reader {
+        batches.push(batch.map_err(|e| JsValue::from_str(&e.to_string()))?);
+    }
+
+    Ok(store_batches(batches, &schema))
+}
+
+/// Load Parquet bytes into WASM memory. Returns a handle for subsequent operations.
+/// This replaces the need for parquet-wasm — one WASM binary for everything.
+#[wasm_bindgen]
+pub fn load_parquet(parquet_bytes: &[u8]) -> Result<u32, JsValue> {
+    let bytes = bytes::Bytes::copy_from_slice(parquet_bytes);
+    let builder = ParquetRecordBatchReaderBuilder::try_new(bytes)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let schema = builder.schema().clone();
+    let reader = builder.build()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    let mut batches = Vec::new();
+    for batch in reader {
+        batches.push(batch.map_err(|e| JsValue::from_str(&e.to_string()))?);
+    }
+
+    Ok(store_batches(batches, &schema))
 }
 
 /// Free a loaded dataset from WASM memory.

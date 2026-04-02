@@ -6,6 +6,18 @@
  */
 
 type PredicateModule = {
+  // Data store
+  load_ipc(ipc_bytes: Uint8Array): number
+  load_parquet(parquet_bytes: Uint8Array): number
+  free(handle: number): void
+  num_rows(handle: number): number
+  num_cols(handle: number): number
+  col_names(handle: number): string[]
+  col_type(handle: number, col: number): string
+  get_cell_string(handle: number, row: number, col: number): string
+  get_cell_f64(handle: number, row: number, col: number): number
+  is_null(handle: number, row: number, col: number): boolean
+  // Compute (stateless, takes IPC bytes)
   value_counts(ipc_bytes: Uint8Array, column_index: number): { label: string; count: number }[]
   histogram(ipc_bytes: Uint8Array, column_index: number, num_bins: number): { x0: number; x1: number; count: number }[]
   filter_rows(ipc_bytes: Uint8Array, mask: Uint8Array): Uint8Array
@@ -77,6 +89,9 @@ export async function filterRows(
 /**
  * Check if the WASM module is available (built and loadable).
  */
+/**
+ * Check if the WASM module is available (built and loadable).
+ */
 export async function isAvailable(): Promise<boolean> {
   try {
     await ensureModule()
@@ -84,4 +99,66 @@ export async function isAvailable(): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+// --- Data store (WASM-owned data) ---
+
+/** Load Arrow IPC bytes into WASM memory. Returns a handle. */
+export async function loadIpc(ipcBytes: Uint8Array): Promise<number> {
+  const m = await ensureModule()
+  return m.load_ipc(ipcBytes)
+}
+
+/** Load Parquet bytes into WASM memory. Returns a handle. Replaces parquet-wasm. */
+export async function loadParquet(parquetBytes: Uint8Array): Promise<number> {
+  const m = await ensureModule()
+  return m.load_parquet(parquetBytes)
+}
+
+/** Free a loaded dataset from WASM memory. */
+export async function free(handle: number): Promise<void> {
+  const m = await ensureModule()
+  m.free(handle)
+}
+
+/** Get the number of rows in a loaded dataset. */
+export async function numRows(handle: number): Promise<number> {
+  const m = await ensureModule()
+  return m.num_rows(handle)
+}
+
+/** Get the number of columns. */
+export async function numCols(handle: number): Promise<number> {
+  const m = await ensureModule()
+  return m.num_cols(handle)
+}
+
+/** Get column names. */
+export async function colNames(handle: number): Promise<string[]> {
+  const m = await ensureModule()
+  return m.col_names(handle)
+}
+
+/** Get detected column type. */
+export async function colType(handle: number, col: number): Promise<string> {
+  const m = await ensureModule()
+  return m.col_type(handle, col)
+}
+
+/** Get a cell value formatted as string. */
+export async function getCellString(handle: number, row: number, col: number): Promise<string> {
+  const m = await ensureModule()
+  return m.get_cell_string(handle, row, col)
+}
+
+/** Get a cell value as f64 (NaN for non-numeric or null). */
+export async function getCellF64(handle: number, row: number, col: number): Promise<number> {
+  const m = await ensureModule()
+  return m.get_cell_f64(handle, row, col)
+}
+
+/** Check if a cell is null. */
+export async function isNull(handle: number, row: number, col: number): Promise<boolean> {
+  const m = await ensureModule()
+  return m.is_null(handle, row, col)
 }
