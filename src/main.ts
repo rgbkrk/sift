@@ -233,7 +233,8 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
   renderLoadingSkeleton(tableRoot, 'Loading into WASM…')
   const handle = await wasmLoadParquet(parquetBytes)
 
-  const { tableData, columns } = createWasmTableData(handle)
+  const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
+  tableData.prefetchViewport = prefetchViewport
 
   // Build summaries directly in WASM — no JS accumulator loop
   const mod = getModuleSync()

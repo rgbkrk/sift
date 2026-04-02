@@ -67,6 +67,8 @@ export type TableData = {
   getCell: (row: number, col: number) => string
   getCellRaw: (row: number, col: number) => unknown
   columnSummaries: ColumnSummary[]
+  /** Optional: prefetch visible rows in batch (WASM viewport optimization). */
+  prefetchViewport?: (dataRowIndices: number[]) => void
 }
 
 // --- Filter types ---
@@ -716,6 +718,15 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const lastY = scrollTop + viewportH
     let last = rowAtOffset(lastY) + OVERSCAN
     if (last >= filteredCount) last = filteredCount - 1
+
+    // Prefetch visible rows in batch (WASM viewport optimization)
+    if (data.prefetchViewport) {
+      const visibleDataRows: number[] = []
+      for (let r = first; r <= last; r++) {
+        visibleDataRows.push(viewIndices[r])
+      }
+      data.prefetchViewport(visibleDataRows)
+    }
 
     for (const pr of pool) {
       if (pr.assignedRow !== -1 && (pr.assignedRow < first || pr.assignedRow > last)) {
