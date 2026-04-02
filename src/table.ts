@@ -70,6 +70,8 @@ export type TableData = {
   columnSummaries: ColumnSummary[]
   /** Optional: prefetch visible rows in batch (WASM viewport optimization). */
   prefetchViewport?: (dataRowIndices: number[]) => void
+  /** Optional: cast a column to a different type (WASM type override). */
+  castColumn?: (colIndex: number, targetType: ColumnType) => void
 }
 
 // --- Filter types ---
@@ -1286,8 +1288,27 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         break
 
       case 'cast':
-        // TODO: implement column type casting via nteract-predicate
-        console.log(`Cast column ${colIndex} to ${action.targetType}`)
+        if (data.castColumn) {
+          data.castColumn(colIndex, action.targetType)
+          // Update the column metadata
+          columns[colIndex].columnType = action.targetType
+          columns[colIndex].numeric = action.targetType === 'numeric'
+          // Update type icon
+          const ths = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
+          const icon = ths[colIndex].querySelector('.pt-type-icon')
+          if (icon) {
+            icon.textContent = action.targetType === 'numeric' ? '#'
+              : action.targetType === 'boolean' ? '◉'
+              : action.targetType === 'timestamp' ? '◷' : 'Aa'
+            icon.setAttribute('title', action.targetType)
+          }
+          // Recompute summaries and re-render
+          recomputeFilteredSummaries()
+          renderAllSummaries()
+          heightsDirty = true
+          for (const pr of pool) { pr.assignedRow = -1; pr.el.style.display = 'none' }
+          scheduleRender()
+        }
         break
     }
   }

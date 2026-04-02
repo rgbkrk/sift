@@ -1,6 +1,30 @@
 /* @ts-self-types="./nteract_predicate.d.ts" */
 
 /**
+ * Cast a column to a different type in-place.
+ * Supported casts: string→timestamp (parse ISO dates), string→numeric, etc.
+ * Uses arrow-cast for type conversion. Updates the store's column type metadata.
+ * @param {number} handle
+ * @param {number} col
+ * @param {string} target_type
+ */
+export function cast_column(handle, col, target_type) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(target_type, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.cast_column(retptr, handle, col, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        if (r1) {
+            throw takeObject(r0);
+        }
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Get column names as a JSON array.
  * @param {number} handle
  * @returns {any}

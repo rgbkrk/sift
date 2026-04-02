@@ -11,6 +11,7 @@ type PredicateModule = {
   load_parquet(parquet_bytes: Uint8Array): number
   parquet_metadata(parquet_bytes: Uint8Array): Uint32Array
   load_parquet_row_group(parquet_bytes: Uint8Array, row_group: number, handle: number): number
+  cast_column(handle: number, col: number, target_type: string): void
   free(handle: number): void
   num_rows(handle: number): number
   num_cols(handle: number): number

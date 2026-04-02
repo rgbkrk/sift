@@ -146,6 +146,14 @@ export function createWasmTableData(handle: number): WasmTableHandle {
       return mod.get_cell_string(handle, row, col)
     },
     columnSummaries: columns.map(() => null),
+    castColumn(colIndex: number, targetType: ColumnType) {
+      mod.cast_column(handle, colIndex, targetType)
+      // Clear viewport cache — cell values have changed
+      cache.clear()
+      // Update column metadata
+      columns[colIndex].columnType = targetType
+      columns[colIndex].numeric = targetType === 'numeric'
+    },
   }
 
   return { handle, tableData, columns, prefetchViewport }
