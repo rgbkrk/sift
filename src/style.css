@@ -210,6 +210,17 @@ h1 {
   gap: 2px;
 }
 
+.pt-filter-line {
+  font: 400 10px/1.2 var(--font);
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: normal;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pt-th-label {
   overflow: hidden;
   text-overflow: ellipsis;
