@@ -1,74 +1,106 @@
-# pretext-table
+# Sift
 
-A virtual-scrolling table viewer that streams Arrow IPC data in batches, uses pretext for DOM-free row height calculation, and renders column summary charts with Semiotic.
+Crossfilter data explorer. Demo: [rgbkrk.github.io/sift](https://rgbkrk.github.io/sift/). Becoming `@nteract/data-explorer`.
 
 ## Stack
 
 - **Vite** — dev server + build
-- **TypeScript** — vanilla, no framework (React only for header charts)
-- **@chenglou/pretext** — text measurement & layout (the whole point)
+- **TypeScript** — vanilla TS (React only for header charts + popover)
+- **@chenglou/pretext** — DOM-free text measurement & layout
 - **apache-arrow** — columnar data, streamed via `RecordBatchReader`
-- **React** + **Semiotic** — header summary charts (histograms, category bars, boolean ratio bars)
+- **parquet-wasm** — loads HuggingFace Parquet files in the browser
+- **React** + **Semiotic** — header summary charts
+- **Rust/WASM** (`nteract-predicate`) — arrow-rs compute kernels
 
 ## Commands
 
 ```sh
 npm install              # install deps
-npm run generate         # 50k rows in 10 batches → public/data.arrow
-npm run dev              # start Vite dev server (hot reload)
-npm run build            # production build
+npm run generate         # 100k rows in 20 batches → public/data.arrow
+npm run dev              # start Vite dev server
+npm run build            # production build (demo app)
+npm run build:lib        # library build → lib/index.js (35KB ESM)
+npm test                 # vitest unit tests
+npm run test:e2e         # playwright E2E tests
+
+# WASM compute crate
+cd crates/nteract-predicate
+wasm-pack build --target web --release
 ```
 
 ## Architecture
 
-- `src/generate-data.ts` — Generates synthetic Arrow IPC stream with 10 batches of 5k rows. Columns: id (int), name, location, department, note (multilingual text), status, priority, score (float), email, verified (boolean), joined (timestamp as epoch ms). Run via `npm run generate`.
-- `src/main.ts` — Entry point. Streams Arrow IPC via `RecordBatchReader.from(fetch())`. Detects column types from Arrow schema. Maintains incremental summary accumulators that update as each batch arrives. Mounts the table after the first batch and calls `engine.onBatchAppended()` for each subsequent batch.
-- `src/table.ts` — The table engine. Returns a `TableEngine` handle for incremental updates. Key design decisions:
-  - **Lazy cell preparation** — `prepare()` is called only when a cell first enters the viewport, not upfront. Unprepared rows use an estimated one-line height.
-  - **Per-cell width tracking** — `layout()` is only called when a cell's column width actually changes (chenglou's table-viewer pattern)
-  - **Growable typed arrays** — rowHeights, rowPositions, sortedIndices use capacity-doubling as batches arrive
-  - **Type-aware cell rendering** — boolean badges, formatted timestamps, plain text for the rest
-  - **Visible-range overlay** — on each scroll, computes which histogram bins the visible rows fall into and updates the header chart overlay
-  - **Header wheel forwarding** — wheel events on the header forward to the viewport
-  - Row positions stored in a prefix-sum array for O(log n) scroll-to-row lookup
-- `src/sparkline.tsx` — React (JSX) components for header summary charts:
-  - **NumericHistogram** — Semiotic `BarChart` for full distribution (muted) + hand-drawn SVG overlay for visible rows (bright, scaled to own max)
-  - **TimestampHistogram** — same as numeric but with date-formatted range labels
-  - **CategoricalBars** — CSS bar chart showing top 3 categories + "N others" with percentages
-  - **BooleanRatioBar** — green/red stacked bar with Yes/No percentages
-  - React roots managed via `WeakMap` for stable re-renders on column resize and scroll
-- `src/style.css` — Table styles, header chart styles, boolean badges, stats bar animation.
-- `public/data.arrow` — Generated synthetic dataset (not checked in, run `npm run generate`).
+### Data flow
 
-## Key pretext API usage
+1. **Local**: `fetch('data.arrow')` → `RecordBatchReader` → streaming batches
+2. **HuggingFace**: fetch Parquet → `parquet-wasm` → Arrow IPC → `RecordBatchReader`
+3. First batch: detect column types (with smart refinement for string dates/null sentinels), create accumulators, mount table
+4. Subsequent batches: append data, update accumulators + summaries, call `engine.onBatchAppended()`
+5. On filter change: recompute summaries from filtered rows (crossfilter), re-render
+
+### Key files
+
+- `src/main.ts` — Entry point, dataset picker, data loading, type refinement
+- `src/table.ts` — The table engine (`createTable` → `TableEngine`). Virtual scroll, sort, filter, crossfilter summaries, keyboard nav, ARIA
+- `src/sparkline.tsx` — Header summary charts: histograms (Semiotic), category bars, boolean ratio bars, searchable category popover (portal)
+- `src/accumulators.ts` — Summary accumulators (numeric, timestamp, categorical, boolean) + type detection/refinement
+- `src/react.tsx` — `<PretextTable>` React wrapper for nteract embedding
+- `src/filter-schema.ts` — Predicate types, ExplorerState, compilers to SQL/pandas/English
+- `src/predicate.ts` — Lazy-loading TS wrapper for nteract-predicate WASM
+- `src/datasets.ts` — HuggingFace dataset catalog
+- `src/parquet-loader.ts` — Parquet fetch + conversion via parquet-wasm
+- `src/index.ts` — Public API entry point for library consumers
+- `src/style.css` — All styles, light/dark theme via CSS custom properties
+
+### WASM crate (`crates/nteract-predicate/`)
+
+Rust crate wrapping arrow-rs for compute operations. Built with `wasm-pack`.
+
+- `src/lib.rs` — wasm-bindgen entry points
+- `src/summary.rs` — `value_counts`, `histogram` (handles dictionary-encoded columns)
+- `src/filter.rs` — `filter_rows` (boolean mask), `string_contains` (substring search)
+
+### Key pretext insight
 
 ```ts
-import { prepare, layout, type PreparedText } from '@chenglou/pretext'
-
-// One-time per cell: measure text segments (expensive, cached per cell)
-const prepared = prepare(cellText, '14px Inter')
-
-// Hot path: compute height for a given column width (pure arithmetic, ~0.0002ms)
-const { height } = layout(prepared, columnWidth, lineHeight)
+const prepared = prepare(cellText, '14px Inter')  // one-time per cell
+const { height } = layout(prepared, columnWidth, lineHeight)  // ~0.0002ms, pure arithmetic
 ```
 
-The critical insight: `layout()` is so fast that recalculating heights for thousands of visible cells on every column drag frame is cheaper than a single DOM reflow.
+`layout()` is so fast that recalculating heights for thousands of visible cells on every column drag frame is cheaper than a single DOM reflow. This is the foundation.
 
-## Data flow
+### Column types
 
-1. `fetch('/data.arrow')` → `RecordBatchReader.from(response)` → `reader.open()`
-2. First batch: materialize strings/raws, create summary accumulators, mount table
-3. Subsequent batches: append to column stores, update accumulators, call `engine.onBatchAppended()`
-4. `onBatchAppended()`: grow buffers, extend sort indices, update stats + summaries, schedule render
-5. `render()`: lazy-prepare visible cells, compute heights, position rows, update overlay
-
-## Column types
-
-Detected from Arrow schema (`Type.Bool`, `Type.Int`, `Type.Float`, etc.) with name-based overrides (e.g. `joined` → `timestamp`).
+Detected from Arrow schema with data-driven refinement (string→timestamp, null sentinels).
 
 | Type | Cell rendering | Header summary | Sort |
 |------|---------------|----------------|------|
-| numeric | plain text | histogram + visible overlay | numeric comparison |
-| categorical | plain text | top-3 category bars | string comparison |
-| boolean | green/red badge | ratio bar (Yes/No %) | boolean comparison |
-| timestamp | formatted date | date histogram + visible overlay | numeric comparison |
+| numeric | plain text | histogram + visible overlay | numeric, nulls last |
+| categorical | plain text | top-3 bars + searchable popover | string, nulls last |
+| boolean | green/red badge | ratio bar (Yes/No/null %) | boolean, nulls last |
+| timestamp | formatted date | date histogram + visible overlay | numeric, nulls last |
+
+### Engine API
+
+```ts
+const engine = createTable(container, tableData, {
+  onChange: (state) => {
+    // state: { sort, filters, filteredCount, totalCount }
+    const explorer = engineStateToExplorerState(state)
+    // explorer → Automerge, SQL, pandas, English
+  }
+})
+
+engine.getSort()          // { column, direction } | null
+engine.setSort('name', 'asc')
+engine.getFilters()       // { column, filter }[]
+engine.getState()         // full snapshot
+engine.setFilter(colIndex, { kind: 'range', min: 10, max: 50 })
+engine.clearAllFilters()
+```
+
+### Naming
+
+- **Sift** — this demo/site
+- **`@nteract/data-explorer`** — the library (future npm package)
+- **`nteract-predicate`** — the WASM compute crate
