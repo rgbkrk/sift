@@ -1,8 +1,8 @@
 [package]
-name = "pretext-compute"
+name = "nteract-predicate"
 version = "0.1.0"
 edition = "2021"
-description = "WASM compute kernels for pretext-table: filter, aggregate, string search"
+description = "WASM predicate engine for @nteract/data-explorer: filter, aggregate, string search on Arrow data"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

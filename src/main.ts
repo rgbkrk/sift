@@ -74,7 +74,7 @@ function renderShell(app: HTMLElement) {
       <div class="pt-intro">
         <p class="pt-eyebrow">Pretext × Arrow × Semiotic</p>
         <div class="pt-intro-row">
-          <h1>Table Viewer</h1>
+          <h1>Sift</h1>
           <div class="pt-dataset-picker">
             <select id="dataset-select">
               ${DATASETS.map(d => `
