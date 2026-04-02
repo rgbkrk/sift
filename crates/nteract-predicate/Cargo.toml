@@ -13,6 +13,7 @@ js-sys = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 bytes = "1"
+chrono = { version = "0.4", default-features = false }
 
 # Arrow with compute kernels — feature-gated to control WASM size
 arrow = { version = "54", default-features = false, features = [

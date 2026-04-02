@@ -595,3 +595,88 @@ pub fn load_parquet_row_group(parquet_bytes: &[u8], row_group: usize, handle: u3
         })
     }
 }
+
+/// Cast a column to a different type in-place.
+/// Supported casts: string→timestamp (parse ISO dates), string→numeric, etc.
+/// Uses arrow-cast for type conversion. Updates the store's column type metadata.
+#[wasm_bindgen]
+pub fn cast_column(handle: u32, col: usize, target_type: &str) -> Result<(), JsValue> {
+    with_stores(|stores| {
+        let store = stores.get_mut(&handle)
+            .ok_or_else(|| JsValue::from_str(&format!("Invalid handle: {}", handle)))?;
+
+        let target_dt = match target_type {
+            "timestamp" => DataType::Timestamp(arrow::datatypes::TimeUnit::Millisecond, None),
+            "numeric" => DataType::Float64,
+            "boolean" => DataType::Boolean,
+            "categorical" => DataType::Utf8,
+            _ => return Err(JsValue::from_str(&format!("Unknown target type: {}", target_type))),
+        };
+
+        // Cast the column in each batch
+        let mut new_batches = Vec::new();
+        for batch in &store.batches {
+            let column = batch.column(col);
+            let source_dt = column.data_type();
+
+            let casted = if source_dt == &target_dt {
+                column.clone()
+            } else if target_type == "timestamp" && matches!(source_dt, DataType::Utf8 | DataType::LargeUtf8) {
+                // String → Timestamp: parse ISO date strings manually
+                let str_arr = column.as_any().downcast_ref::<StringArray>().unwrap();
+                let mut builder = arrow::array::TimestampMillisecondArray::builder(str_arr.len());
+                for i in 0..str_arr.len() {
+                    if str_arr.is_null(i) {
+                        builder.append_null();
+                    } else {
+                        let s = str_arr.value(i);
+                        // Try common date formats
+                        if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                            let ts = dt.and_hms_opt(0, 0, 0).unwrap()
+                                .and_utc().timestamp_millis();
+                            builder.append_value(ts);
+                        } else if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+                            builder.append_value(dt.and_utc().timestamp_millis());
+                        } else {
+                            builder.append_null();
+                        }
+                    }
+                }
+                std::sync::Arc::new(builder.finish()) as arrow::array::ArrayRef
+            } else {
+                // Use arrow-cast for other conversions
+                arrow_cast::cast::cast(column.as_ref(), &target_dt)
+                    .map_err(|e| JsValue::from_str(&format!("Cast error: {}", e)))?
+            };
+
+            // Rebuild the batch with the casted column
+            let mut columns: Vec<arrow::array::ArrayRef> = Vec::new();
+            for i in 0..batch.num_columns() {
+                if i == col {
+                    columns.push(casted.clone());
+                } else {
+                    columns.push(batch.column(i).clone());
+                }
+            }
+
+            // Update schema for this column
+            let mut fields: Vec<arrow::datatypes::FieldRef> = batch.schema().fields().iter().cloned().collect();
+            fields[col] = std::sync::Arc::new(
+                arrow::datatypes::Field::new(fields[col].name(), target_dt.clone(), true)
+            );
+            let new_schema = std::sync::Arc::new(arrow::datatypes::Schema::new(fields));
+            new_batches.push(RecordBatch::try_new(new_schema, columns)
+                .map_err(|e| JsValue::from_str(&format!("Batch rebuild error: {}", e)))?);
+        }
+
+        store.batches = new_batches;
+        store.col_types[col] = match target_type {
+            "timestamp" => "timestamp".to_string(),
+            "numeric" => "numeric".to_string(),
+            "boolean" => "boolean".to_string(),
+            _ => "categorical".to_string(),
+        };
+
+        Ok(())
+    })
+}

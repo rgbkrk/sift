@@ -2,6 +2,13 @@
 /* eslint-disable */
 
 /**
+ * Cast a column to a different type in-place.
+ * Supported casts: string→timestamp (parse ISO dates), string→numeric, etc.
+ * Uses arrow-cast for type conversion. Updates the store's column type metadata.
+ */
+export function cast_column(handle: number, col: number, target_type: string): void;
+
+/**
  * Get column names as a JSON array.
  */
 export function col_names(handle: number): any;
@@ -145,6 +152,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly cast_column: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly col_names: (a: number, b: number) => void;
     readonly col_type: (a: number, b: number, c: number) => void;
     readonly free: (a: number) => void;
