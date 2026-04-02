@@ -35,6 +35,20 @@ export function get_cell_f64(handle: number, row: number, col: number): number;
 export function get_cell_string(handle: number, row: number, col: number): string;
 
 /**
+ * Get a viewport slice as Arrow IPC bytes.
+ * Returns the rows [start_row, end_row) serialized as Arrow IPC stream.
+ * This is the hot-path function — one call per scroll frame.
+ */
+export function get_viewport(handle: number, start_row: number, end_row: number): Uint8Array;
+
+/**
+ * Get a viewport slice for specific rows by index (for sorted/filtered views).
+ * `indices` is a Uint32Array of row indices to fetch.
+ * Returns Arrow IPC bytes containing those specific rows in order.
+ */
+export function get_viewport_by_indices(handle: number, indices: Uint32Array): Uint8Array;
+
+/**
  * Compute a histogram (binned counts) for a numeric column.
  *
  * Takes: Arrow IPC bytes, column index, number of bins
@@ -123,6 +137,8 @@ export interface InitOutput {
     readonly free: (a: number) => void;
     readonly get_cell_f64: (a: number, b: number, c: number, d: number) => void;
     readonly get_cell_string: (a: number, b: number, c: number, d: number) => void;
+    readonly get_viewport: (a: number, b: number, c: number, d: number) => void;
+    readonly get_viewport_by_indices: (a: number, b: number, c: number, d: number) => void;
     readonly is_null: (a: number, b: number, c: number, d: number) => void;
     readonly load_ipc: (a: number, b: number, c: number) => void;
     readonly load_parquet: (a: number, b: number, c: number) => void;

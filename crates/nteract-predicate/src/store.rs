@@ -4,6 +4,7 @@ use arrow_select::concat::concat;
 use arrow_ord::sort::{sort_to_indices, SortOptions};
 use crate::summary::{CategoryCount, HistogramBin};
 use arrow::ipc::reader::StreamReader;
+use arrow::ipc::writer::StreamWriter;
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use std::collections::HashMap;
@@ -438,6 +439,105 @@ pub fn store_sort_indices(handle: u32, col: usize, ascending: bool) -> Result<Ve
 
         // Convert UInt32Array to Vec<u32>
         Ok(indices.values().iter().copied().collect())
+    })
+    .map_err(|e| JsValue::from_str(&e))?
+    .map_err(|e: String| JsValue::from_str(&e))
+}
+
+/// Get a viewport slice as Arrow IPC bytes.
+/// Returns the rows [start_row, end_row) serialized as Arrow IPC stream.
+/// This is the hot-path function — one call per scroll frame.
+#[wasm_bindgen]
+pub fn get_viewport(handle: u32, start_row: u32, end_row: u32) -> Result<Vec<u8>, JsValue> {
+    with_store(handle, |s| {
+        let start = start_row as usize;
+        let end = (end_row as usize).min(s.total_rows);
+        if start >= end {
+            return Err("empty viewport".to_string());
+        }
+
+        let schema = s.batches[0].schema();
+        let mut slices: Vec<RecordBatch> = Vec::new();
+
+        // Walk batches, slicing the ones that overlap [start, end)
+        for (batch_idx, batch) in s.batches.iter().enumerate() {
+            let batch_start = s.batch_offsets[batch_idx];
+            let batch_end = batch_start + batch.num_rows();
+
+            // Skip batches entirely before or after the viewport
+            if batch_end <= start || batch_start >= end {
+                continue;
+            }
+
+            // Compute the overlap
+            let local_start = if start > batch_start { start - batch_start } else { 0 };
+            let local_end = if end < batch_end { end - batch_start } else { batch.num_rows() };
+
+            slices.push(batch.slice(local_start, local_end - local_start));
+        }
+
+        if slices.is_empty() {
+            return Err("no data in viewport".to_string());
+        }
+
+        // Serialize to Arrow IPC stream
+        let mut buf = Vec::new();
+        let mut writer = StreamWriter::try_new(&mut buf, &schema)
+            .map_err(|e| format!("IPC writer error: {}", e))?;
+        for slice in &slices {
+            writer.write(slice).map_err(|e| format!("IPC write error: {}", e))?;
+        }
+        writer.finish().map_err(|e| format!("IPC finish error: {}", e))?;
+        drop(writer);
+
+        Ok(buf)
+    })
+    .map_err(|e| JsValue::from_str(&e))?
+    .map_err(|e: String| JsValue::from_str(&e))
+}
+
+/// Get a viewport slice for specific rows by index (for sorted/filtered views).
+/// `indices` is a Uint32Array of row indices to fetch.
+/// Returns Arrow IPC bytes containing those specific rows in order.
+#[wasm_bindgen]
+pub fn get_viewport_by_indices(handle: u32, indices: &[u32]) -> Result<Vec<u8>, JsValue> {
+    with_store(handle, |s| {
+        if indices.is_empty() || s.batches.is_empty() {
+            return Err("empty indices".to_string());
+        }
+
+        let schema = s.batches[0].schema();
+        let num_cols = schema.fields().len();
+
+        // For each column, gather values at the requested indices using arrow take
+        let mut columns: Vec<arrow::array::ArrayRef> = Vec::with_capacity(num_cols);
+
+        for col_idx in 0..num_cols {
+            // Concatenate column across all batches
+            let arrays: Vec<&dyn Array> = s.batches.iter()
+                .map(|b| b.column(col_idx).as_ref())
+                .collect();
+            let combined = concat(&arrays)
+                .map_err(|e| format!("concat error: {}", e))?;
+
+            // Build indices array
+            let idx_array = UInt32Array::from(indices.to_vec());
+            let taken = arrow_select::take::take(combined.as_ref(), &idx_array, None)
+                .map_err(|e| format!("take error: {}", e))?;
+            columns.push(taken);
+        }
+
+        let batch = RecordBatch::try_new(schema, columns)
+            .map_err(|e| format!("batch error: {}", e))?;
+
+        let mut buf = Vec::new();
+        let mut writer = StreamWriter::try_new(&mut buf, batch.schema_ref())
+            .map_err(|e| format!("IPC writer error: {}", e))?;
+        writer.write(&batch).map_err(|e| format!("IPC write error: {}", e))?;
+        writer.finish().map_err(|e| format!("IPC finish error: {}", e))?;
+        drop(writer);
+
+        Ok(buf)
     })
     .map_err(|e| JsValue::from_str(&e))?
     .map_err(|e: String| JsValue::from_str(&e))

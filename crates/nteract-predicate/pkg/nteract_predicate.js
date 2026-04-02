@@ -148,6 +148,63 @@ export function get_cell_string(handle, row, col) {
 }
 
 /**
+ * Get a viewport slice as Arrow IPC bytes.
+ * Returns the rows [start_row, end_row) serialized as Arrow IPC stream.
+ * This is the hot-path function — one call per scroll frame.
+ * @param {number} handle
+ * @param {number} start_row
+ * @param {number} end_row
+ * @returns {Uint8Array}
+ */
+export function get_viewport(handle, start_row, end_row) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.get_viewport(retptr, handle, start_row, end_row);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        if (r3) {
+            throw takeObject(r2);
+        }
+        var v1 = getArrayU8FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export3(r0, r1 * 1, 1);
+        return v1;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Get a viewport slice for specific rows by index (for sorted/filtered views).
+ * `indices` is a Uint32Array of row indices to fetch.
+ * Returns Arrow IPC bytes containing those specific rows in order.
+ * @param {number} handle
+ * @param {Uint32Array} indices
+ * @returns {Uint8Array}
+ */
+export function get_viewport_by_indices(handle, indices) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray32ToWasm0(indices, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.get_viewport_by_indices(retptr, handle, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        if (r3) {
+            throw takeObject(r2);
+        }
+        var v2 = getArrayU8FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export3(r0, r1 * 1, 1);
+        return v2;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Compute a histogram (binned counts) for a numeric column.
  *
  * Takes: Arrow IPC bytes, column index, number of bins
@@ -638,6 +695,13 @@ let heap = new Array(1024).fill(undefined);
 heap.push(undefined, null, true, false);
 
 let heap_next = heap.length;
+
+function passArray32ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 4, 4) >>> 0;
+    getUint32ArrayMemory0().set(arg, ptr / 4);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
 
 function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1, 1) >>> 0;
