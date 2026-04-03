@@ -722,22 +722,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   let prevRange = '', prevDom = '', prevFps = ''
 
-  // Rolling FPS via rAF inter-frame timing
+  // FPS from actual render timestamps — only counts frames where we did work
   const FPS_WINDOW = 30
-  const frameDeltas: number[] = []
-  let lastFrameTime = 0
-  let fpsRafId = 0
-
-  function trackFps(now: number) {
-    if (lastFrameTime > 0) {
-      const delta = now - lastFrameTime
-      frameDeltas.push(delta)
-      if (frameDeltas.length > FPS_WINDOW) frameDeltas.shift()
-    }
-    lastFrameTime = now
-    fpsRafId = requestAnimationFrame(trackFps)
-  }
-  fpsRafId = requestAnimationFrame(trackFps)
+  const renderTimestamps: number[] = []
 
   function updateStat(el: HTMLSpanElement, value: string, prev: string): string {
     if (value !== prev) {
@@ -1000,9 +987,15 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const rangeStr = `showing ${first}–${Math.min(last, filteredCount - 1)}`
     const domStr = `${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
 
-    // FPS from rAF inter-frame deltas + render cost
-    const fpsStr = frameDeltas.length > 0
-      ? `${Math.round(1000 / (frameDeltas.reduce((a, b) => a + b, 0) / frameDeltas.length))} fps`
+    // FPS from actual render timestamps
+    const now = performance.now()
+    renderTimestamps.push(now)
+    if (renderTimestamps.length > FPS_WINDOW) renderTimestamps.shift()
+    const span = renderTimestamps.length > 1
+      ? renderTimestamps[renderTimestamps.length - 1] - renderTimestamps[0]
+      : 0
+    const fpsStr = span > 0
+      ? `${Math.round(((renderTimestamps.length - 1) / span) * 1000)} fps`
       : '– fps'
     const elapsedStr = `${elapsed.toFixed(1)}ms`
 
@@ -1222,7 +1215,6 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       cancelAnimationFrame(scheduledRaf)
       scheduledRaf = null
     }
-    cancelAnimationFrame(fpsRafId)
 
     // Remove event listeners and observers
     headerResizeObserver?.disconnect()
