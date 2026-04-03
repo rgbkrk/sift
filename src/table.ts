@@ -722,9 +722,22 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   let prevRange = '', prevDom = '', prevFps = ''
 
-  // Rolling window of frame times for FPS calculation
-  const FPS_WINDOW = 60
-  const frameTimes: number[] = []
+  // Rolling FPS via rAF inter-frame timing
+  const FPS_WINDOW = 30
+  const frameDeltas: number[] = []
+  let lastFrameTime = 0
+  let fpsRafId = 0
+
+  function trackFps(now: number) {
+    if (lastFrameTime > 0) {
+      const delta = now - lastFrameTime
+      frameDeltas.push(delta)
+      if (frameDeltas.length > FPS_WINDOW) frameDeltas.shift()
+    }
+    lastFrameTime = now
+    fpsRafId = requestAnimationFrame(trackFps)
+  }
+  fpsRafId = requestAnimationFrame(trackFps)
 
   function updateStat(el: HTMLSpanElement, value: string, prev: string): string {
     if (value !== prev) {
@@ -987,16 +1000,15 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const rangeStr = `showing ${first}–${Math.min(last, filteredCount - 1)}`
     const domStr = `${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
 
-    // Rolling FPS: track last N frame times, compute average
-    frameTimes.push(elapsed)
-    if (frameTimes.length > FPS_WINDOW) frameTimes.shift()
-    const avgFrame = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length
-    const fps = Math.round(1000 / avgFrame)
-    const fpsStr = `${fps} fps`
+    // FPS from rAF inter-frame deltas + render cost
+    const fpsStr = frameDeltas.length > 0
+      ? `${Math.round(1000 / (frameDeltas.reduce((a, b) => a + b, 0) / frameDeltas.length))} fps`
+      : '– fps'
+    const elapsedStr = `${elapsed.toFixed(1)}ms`
 
     prevRange = updateStat(statRange, rangeStr, prevRange)
     prevDom = updateStat(statDom, domStr, prevDom)
-    prevFps = updateStat(statFrame, fpsStr, prevFps)
+    prevFps = updateStat(statFrame, `${fpsStr}·${elapsedStr}`, prevFps)
   }
 
   // --- Scroll handler ---
@@ -1205,11 +1217,12 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   // --- Destroy ---
 
   function destroy() {
-    // Cancel pending render
+    // Cancel pending render + FPS tracker
     if (scheduledRaf !== null) {
       cancelAnimationFrame(scheduledRaf)
       scheduledRaf = null
     }
+    cancelAnimationFrame(fpsRafId)
 
     // Remove event listeners and observers
     headerResizeObserver?.disconnect()
