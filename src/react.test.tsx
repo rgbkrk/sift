@@ -65,8 +65,8 @@ describe('SiftTable', () => {
     const { container } = render(<SiftTable data={data} />)
     await vi.advanceTimersByTimeAsync(0)
 
-    const stats = container.querySelector('.pt-stat-rows')
-    expect(stats?.textContent).toContain('25')
+    const stats = container.querySelector('.pt-stat-rows') as HTMLElement
+    expect(stats?.dataset.value).toContain('25')
   })
 
   it('calls onChange when filter is applied via engine', async () => {

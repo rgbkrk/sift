@@ -629,11 +629,76 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   const statDom = makeStatSpan('pt-stat-dom')
   const statFrame = makeStatSpan('pt-stat-frame')
 
+  // Reusable odometer — rolling digit strips for any numeric display
+  type OdometerSlot = { el: HTMLSpanElement; strip: HTMLSpanElement | null; current: string }
+
+  function createOdometer(host: HTMLElement): { update: (text: string) => void } {
+    host.classList.add('pt-odometer')
+    const slots: OdometerSlot[] = []
+
+    function createDigitStrip(): HTMLSpanElement {
+      const strip = document.createElement('span')
+      strip.className = 'pt-odo-strip'
+      for (let d = 0; d <= 9; d++) {
+        const digit = document.createElement('span')
+        digit.className = 'pt-odo-num'
+        digit.textContent = String(d)
+        strip.appendChild(digit)
+      }
+      return strip
+    }
+
+    function update(text: string) {
+      while (slots.length < text.length) {
+        const el = document.createElement('span')
+        el.className = 'pt-odo-slot'
+        host.appendChild(el)
+        slots.push({ el, strip: null, current: '' })
+      }
+      while (slots.length > text.length) {
+        const removed = slots.pop()!
+        host.removeChild(removed.el)
+      }
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i]
+        const slot = slots[i]
+
+        if (ch === slot.current) continue
+
+        const isDigit = ch >= '0' && ch <= '9'
+
+        if (isDigit) {
+          if (!slot.strip) {
+            slot.el.textContent = ''
+            slot.strip = createDigitStrip()
+            slot.el.appendChild(slot.strip)
+          }
+          const target = parseInt(ch)
+          slot.strip.style.transform = `translateY(${-target * 1.2}em)`
+        } else {
+          if (slot.strip) {
+            slot.el.removeChild(slot.strip)
+            slot.strip = null
+          }
+          slot.el.textContent = ch
+        }
+        slot.current = ch
+      }
+      // Expose visible text for testing (textContent includes hidden strip digits)
+      host.dataset.value = text
+    }
+
+    return { update }
+  }
+
+  const rowsOdometer = createOdometer(statRows)
+
   function updateRowCountDisplay() {
     if (hasActiveFilters()) {
-      statRows.textContent = `${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`
+      rowsOdometer.update(`${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`)
     } else {
-      statRows.textContent = `${rowCount.toLocaleString()} rows`
+      rowsOdometer.update(`${rowCount.toLocaleString()} rows`)
     }
     // Keep ARIA row count in sync
     container.setAttribute('aria-rowcount', String(filteredCount + 1)) // +1 for header row
@@ -748,65 +813,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   // RxJS FPS: frame counter on animationFrameScheduler, render cost from Subject
   const renderCost$ = new Subject<number>() // receives elapsed ms per render
 
-  // Odometer FPS display — digit strips roll to target with spring easing
-  statFrame.classList.add('pt-odometer')
-  type OdometerSlot = { el: HTMLSpanElement; strip: HTMLSpanElement | null; current: string }
-  let odometerSlots: OdometerSlot[] = []
-
-  function createDigitStrip(): HTMLSpanElement {
-    const strip = document.createElement('span')
-    strip.className = 'pt-odo-strip'
-    for (let d = 0; d <= 9; d++) {
-      const digit = document.createElement('span')
-      digit.className = 'pt-odo-num'
-      digit.textContent = String(d)
-      strip.appendChild(digit)
-    }
-    return strip
-  }
-
-  function updateOdometer(text: string) {
-    // Ensure we have the right number of slots
-    while (odometerSlots.length < text.length) {
-      const el = document.createElement('span')
-      el.className = 'pt-odo-slot'
-      statFrame.appendChild(el)
-      odometerSlots.push({ el, strip: null, current: '' })
-    }
-    while (odometerSlots.length > text.length) {
-      const removed = odometerSlots.pop()!
-      statFrame.removeChild(removed.el)
-    }
-
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i]
-      const slot = odometerSlots[i]
-
-      if (ch === slot.current) continue
-
-      const isDigit = ch >= '0' && ch <= '9'
-
-      if (isDigit) {
-        // Ensure this slot has a digit strip
-        if (!slot.strip) {
-          slot.el.textContent = ''
-          slot.strip = createDigitStrip()
-          slot.el.appendChild(slot.strip)
-        }
-        // Roll to the target digit (each digit is 1.2em tall)
-        const target = parseInt(ch)
-        slot.strip.style.transform = `translateY(${-target * 1.2}em)`
-      } else {
-        // Static character — no strip needed
-        if (slot.strip) {
-          slot.el.removeChild(slot.strip)
-          slot.strip = null
-        }
-        slot.el.textContent = ch
-      }
-      slot.current = ch
-    }
-  }
+  const fpsOdometer = createOdometer(statFrame)
 
   const fps$ = interval(0, animationFrameScheduler).pipe(
     scan<number, { prevTime: number; deltas: number[] }>((state, _) => {
@@ -833,7 +840,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     distinctUntilChanged(),
     throttleTime(400, animationFrameScheduler, { trailing: true }),
   ).subscribe(text => {
-    updateOdometer(text)
+    fpsOdometer.update(text)
   })
 
   function updateStat(el: HTMLSpanElement, value: string, prev: string): string {

@@ -72,8 +72,8 @@ describe('createTable', () => {
 
     it('shows row count in stats bar', async () => {
       await flushRAF()
-      const stats = container.querySelector('.pt-stat-rows')
-      expect(stats?.textContent).toContain('50')
+      const stats = container.querySelector('.pt-stat-rows') as HTMLElement
+      expect(stats?.dataset.value).toContain('50')
     })
   })
 
@@ -82,9 +82,9 @@ describe('createTable', () => {
       await flushRAF()
       engine.setFilter(2, { kind: 'range', min: 0, max: 30 })
       await flushRAF()
-      const stats = container.querySelector('.pt-stat-rows')
-      expect(stats?.textContent).toContain('of')
-      expect(stats?.textContent).toContain('50')
+      const stats = container.querySelector('.pt-stat-rows') as HTMLElement
+      expect(stats?.dataset.value).toContain('of')
+      expect(stats?.dataset.value).toContain('50')
     })
 
     it('setFilter creates a filter pill', async () => {
@@ -121,16 +121,16 @@ describe('createTable', () => {
       await flushRAF()
       engine.setFilter(3, { kind: 'boolean', value: true })
       await flushRAF()
-      const stats = container.querySelector('.pt-stat-rows')
-      expect(stats?.textContent).toContain('of')
+      const stats = container.querySelector('.pt-stat-rows') as HTMLElement
+      expect(stats?.dataset.value).toContain('of')
     })
 
     it('set filter works', async () => {
       await flushRAF()
       engine.setFilter(1, { kind: 'set', values: new Set(['Person 0', 'Person 1']) })
       await flushRAF()
-      const stats = container.querySelector('.pt-stat-rows')
-      expect(stats?.textContent).toContain('of')
+      const stats = container.querySelector('.pt-stat-rows') as HTMLElement
+      expect(stats?.dataset.value).toContain('of')
     })
   })
 
@@ -235,8 +235,8 @@ describe('createTable', () => {
       data.rowCount = 60
       engine.onBatchAppended()
       await flushRAF()
-      const stats = container.querySelector('.pt-stat-rows')
-      expect(stats?.textContent).toContain('60')
+      const stats = container.querySelector('.pt-stat-rows') as HTMLElement
+      expect(stats?.dataset.value).toContain('60')
     })
   })
 })
