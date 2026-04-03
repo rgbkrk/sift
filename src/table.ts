@@ -1,4 +1,4 @@
-import { prepare, layout, type PreparedText } from '@chenglou/pretext'
+import { prepareWithSegments, layout, type PreparedTextWithSegments } from '@chenglou/pretext'
 import { renderColumnSummary, unmountColumnSummary } from './sparkline'
 import { mountColumnMenu, unmountColumnMenu, type ColumnAction } from './column-menu'
 import {
@@ -180,15 +180,15 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     viewIndices = newSorted
   }
 
-  // Per-cell cache: prepared text + last laid-out width/height
-  type CellCache = { prepared: PreparedText; lastWidth: number; lastHeight: number }
+  // Per-cell cache: prepared text (with segments for line-level access) + last laid-out width/height
+  type CellCache = { prepared: PreparedTextWithSegments; lastWidth: number; lastHeight: number }
   const cellCaches: (CellCache[] | null)[] = []
 
   function prepareCellRow(r: number): CellCache[] {
     const row = new Array<CellCache>(columns.length)
     for (let c = 0; c < columns.length; c++) {
       row[c] = {
-        prepared: prepare(data.getCell(r, c), FONT),
+        prepared: prepareWithSegments(data.getCell(r, c), FONT),
         lastWidth: -1,
         lastHeight: 0,
       }
@@ -1098,7 +1098,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       const cache = cellCaches[r]
       if (!cache) continue
       for (let c = 0; c < columns.length; c++) {
-        cache[c].prepared = prepare(data.getCell(r, c), FONT)
+        cache[c].prepared = prepareWithSegments(data.getCell(r, c), FONT)
         cache[c].lastWidth = -1
       }
     }
