@@ -160,6 +160,62 @@ export function createWasmTableData(handle: number): WasmTableHandle {
     sortColumn(colIndex: number, ascending: boolean): Uint32Array {
       return mod.store_sort_indices(handle, colIndex, ascending)
     },
+    recomputeFilteredSummaries(mask: Uint8Array, filteredRowCount: number) {
+      const BIN_COUNT = 25
+      for (let c = 0; c < numCols; c++) {
+        const colType = columns[c].columnType
+        switch (colType) {
+          case 'categorical': {
+            const counts = mod.store_filtered_value_counts(handle, c, mask) as { label: string; count: number }[]
+            const allCategories = counts.map(({ label, count }) => ({
+              label, count,
+              pct: Math.round((count / filteredRowCount) * 1000) / 10,
+            }))
+            const topCategories = allCategories.slice(0, 3)
+            const othersCount = counts.slice(3).reduce((s, e) => s + e.count, 0)
+            const othersPct = Math.round((othersCount / filteredRowCount) * 1000) / 10
+            const lengths = counts.map(({ label }) => label.length).sort((a, b) => a - b)
+            const medianTextLength = lengths.length > 0 ? lengths[Math.floor(lengths.length / 2)] : 0
+            tableData.columnSummaries[c] = {
+              kind: 'categorical' as const,
+              uniqueCount: counts.length,
+              topCategories,
+              othersCount,
+              othersPct,
+              allCategories,
+              medianTextLength,
+            }
+            break
+          }
+          case 'boolean': {
+            const [trueCount, falseCount, nullCount] = mod.store_filtered_bool_counts(handle, c, mask)
+            tableData.columnSummaries[c] = {
+              kind: 'boolean' as const,
+              trueCount,
+              falseCount,
+              nullCount,
+              total: filteredRowCount,
+            }
+            break
+          }
+          case 'numeric':
+          case 'timestamp': {
+            const bins = mod.store_filtered_histogram(handle, c, mask, BIN_COUNT) as { x0: number; x1: number; count: number }[]
+            if (bins.length === 0) {
+              tableData.columnSummaries[c] = null
+            } else {
+              tableData.columnSummaries[c] = {
+                kind: colType as 'numeric' | 'timestamp',
+                min: bins[0].x0,
+                max: bins[bins.length - 1].x1,
+                bins,
+              }
+            }
+            break
+          }
+        }
+      }
+    },
   }
 
   return { handle, tableData, columns, prefetchViewport }

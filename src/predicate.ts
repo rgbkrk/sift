@@ -28,6 +28,10 @@ type PredicateModule = {
   store_histogram(handle: number, col: number, num_bins: number): { x0: number; x1: number; count: number }[]
   store_bool_counts(handle: number, col: number): Uint32Array
   store_sort_indices(handle: number, col: number, ascending: boolean): Uint32Array
+  // Store-based filtered summaries (crossfilter — takes byte mask)
+  store_filtered_value_counts(handle: number, col: number, mask: Uint8Array): { label: string; count: number }[]
+  store_filtered_histogram(handle: number, col: number, mask: Uint8Array, num_bins: number): { x0: number; x1: number; count: number }[]
+  store_filtered_bool_counts(handle: number, col: number, mask: Uint8Array): Uint32Array
   // Viewport access (returns Arrow IPC for visible rows)
   get_viewport(handle: number, start_row: number, end_row: number): Uint8Array
   get_viewport_by_indices(handle: number, indices: Uint32Array): Uint8Array

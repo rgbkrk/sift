@@ -88,6 +88,8 @@ export type TableData = {
   recomputeSummaries?: () => void
   /** Optional: return sorted row indices for a column (WASM sort optimization). */
   sortColumn?: (colIndex: number, ascending: boolean) => Uint32Array
+  /** Optional: recompute filtered summaries in WASM (crossfilter fast path). */
+  recomputeFilteredSummaries?: (mask: Uint8Array, filteredCount: number) => void
 }
 
 // --- Filter types ---
@@ -1419,7 +1421,17 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       return
     }
 
-    // Build fresh accumulators from the filtered row set
+    // WASM fast path: build byte mask and delegate to Rust
+    if (data.recomputeFilteredSummaries) {
+      const mask = new Uint8Array(rowCount)
+      for (let i = 0; i < filteredCount; i++) {
+        mask[viewIndices[i]] = 1
+      }
+      data.recomputeFilteredSummaries(mask, filteredCount)
+      return
+    }
+
+    // JS fallback: build fresh accumulators from the filtered row set
     for (let c = 0; c < columns.length; c++) {
       const colType = columns[c].columnType
       // Temporary string column for categorical accumulator
