@@ -1,6 +1,7 @@
 import { prepare, layout, type PreparedText } from '@chenglou/pretext'
 import { renderColumnSummary, unmountColumnSummary } from './sparkline'
 import { mountColumnMenu, unmountColumnMenu, type ColumnAction } from './column-menu'
+import { fitColumnWidths } from './auto-width'
 import {
   NumericAccumulator,
   TimestampAccumulator,
@@ -199,8 +200,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   // Cells are prepared lazily when they enter the viewport.
   // computeRowHeight() handles null caches with an estimated height.
 
-  // Column widths (mutable copy)
+  // Column widths — header-based initial widths, refined by sampled data
   const colWidths = columns.map(c => c.width)
+  fitColumnWidths(data, colWidths)
 
   // --- Compute heights ---
 
