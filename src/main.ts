@@ -166,7 +166,7 @@ function renderShell(app: HTMLElement) {
  * First emission mounts the table, subsequent emissions append batches.
  */
 function loadLocalArrow$(dataset: DatasetEntry, tableRoot: HTMLElement): Observable<void> {
-  return new Observable<void>(subscriber => {
+  return defer(() => new Observable<void>(subscriber => {
     let cancelled = false
 
     ;(async () => {
@@ -178,59 +178,105 @@ function loadLocalArrow$(dataset: DatasetEntry, tableRoot: HTMLElement): Observa
         return
       }
 
-      const reader = await RecordBatchReader.from(response)
-      await reader.open()
+      renderLoadingSkeleton(tableRoot, 'Loading data…')
 
-      const { columns, fieldNames, stringCols, rawCols, accumulators, tableData } =
-        buildTableState(reader.schema, dataset, generatedColumnOverrides)
+      // Start WASM init in parallel with Arrow download
+      const { isAvailable, loadIpc } = await import('./predicate')
+      const [arrowBytes, wasmOk] = await Promise.all([
+        response.arrayBuffer().then(b => new Uint8Array(b)),
+        isAvailable(),
+      ])
 
-      let totalRows = 0
-
-      function appendBatch(batch: RecordBatch) {
-        const batchRows = batch.numRows
-        const startRow = totalRows
-        for (let c = 0; c < fieldNames.length; c++) {
-          const col = batch.getChild(fieldNames[c])!
-          for (let r = 0; r < batchRows; r++) {
-            const val = col.get(r)
-            rawCols[c].push(val)
-            stringCols[c].push(formatCell(columns[c].columnType, val))
-          }
-          accumulators[c].add(rawCols[c], startRow, batchRows)
-        }
-        totalRows += batchRows
-        tableData.rowCount = totalRows
-        tableData.columnSummaries = accumulators.map(a => a.snapshot(totalRows))
-      }
-
-      const firstResult = await reader.next()
       if (cancelled) return
-      if (firstResult.done) {
-        tableRoot.innerHTML = '<div class="pt-loading">No data in Arrow file.</div>'
-        subscriber.complete()
+
+      if (!wasmOk) {
+        // WASM unavailable — fall back to JS path
+        await loadLocalArrowJs$(dataset, tableRoot, subscriber, () => cancelled)
         return
       }
-      appendBatch(firstResult.value)
 
+      renderLoadingSkeleton(tableRoot, 'Loading into WASM…')
+      const handle = await loadIpc(arrowBytes)
+
+      const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
+      tableData.prefetchViewport = prefetchViewport
+      const mod = getModuleSync()
+      tableData.recomputeSummaries = () => updateWasmSummaries(mod, handle, tableData, columns)
+
+      // Compute initial summaries
+      updateWasmSummaries(mod, handle, tableData, columns)
+
+      if (cancelled) return
       tableRoot.innerHTML = ''
       currentEngine = createTable(tableRoot, tableData)
+      currentEngine.setStreamingDone()
       subscriber.next()
-
-      for await (const batch of reader) {
-        if (cancelled) return
-        appendBatch(batch)
-        currentEngine!.onBatchAppended()
-        subscriber.next()
-      }
-
-      currentEngine!.setStreamingDone()
       subscriber.complete()
     })().catch(err => {
       if (!cancelled) subscriber.error(err)
     })
 
     return () => { cancelled = true }
-  })
+  }))
+}
+
+/**
+ * JS fallback for local Arrow loading (used when WASM is unavailable).
+ */
+async function loadLocalArrowJs$(
+  dataset: DatasetEntry,
+  tableRoot: HTMLElement,
+  subscriber: import('rxjs').Subscriber<void>,
+  isCancelled: () => boolean,
+) {
+  const response = await fetch(`${import.meta.env.BASE_URL}${dataset.path}`)
+  const reader = await RecordBatchReader.from(response)
+  await reader.open()
+
+  const { columns, fieldNames, stringCols, rawCols, accumulators, tableData } =
+    buildTableState(reader.schema, dataset, generatedColumnOverrides)
+
+  let totalRows = 0
+
+  function appendBatch(batch: RecordBatch) {
+    const batchRows = batch.numRows
+    const startRow = totalRows
+    for (let c = 0; c < fieldNames.length; c++) {
+      const col = batch.getChild(fieldNames[c])!
+      for (let r = 0; r < batchRows; r++) {
+        const val = col.get(r)
+        rawCols[c].push(val)
+        stringCols[c].push(formatCell(columns[c].columnType, val))
+      }
+      accumulators[c].add(rawCols[c], startRow, batchRows)
+    }
+    totalRows += batchRows
+    tableData.rowCount = totalRows
+    tableData.columnSummaries = accumulators.map(a => a.snapshot(totalRows))
+  }
+
+  const firstResult = await reader.next()
+  if (isCancelled()) return
+  if (firstResult.done) {
+    tableRoot.innerHTML = '<div class="pt-loading">No data in Arrow file.</div>'
+    subscriber.complete()
+    return
+  }
+  appendBatch(firstResult.value)
+
+  tableRoot.innerHTML = ''
+  currentEngine = createTable(tableRoot, tableData)
+  subscriber.next()
+
+  for await (const batch of reader) {
+    if (isCancelled()) return
+    appendBatch(batch)
+    currentEngine!.onBatchAppended()
+    subscriber.next()
+  }
+
+  currentEngine!.setStreamingDone()
+  subscriber.complete()
 }
 
 /**
