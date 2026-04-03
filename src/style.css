@@ -915,6 +915,123 @@ h1 {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+/* --- Mobile detail sheet --- */
+
+.pt-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.pt-detail-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 70vh;
+  background: var(--panel);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 300ms ease-out;
+}
+
+.pt-detail-sheet-open {
+  transform: translateY(0);
+}
+
+.pt-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+
+.pt-detail-title {
+  font: 600 15px/1.2 var(--font);
+  color: var(--ink);
+}
+
+.pt-detail-close {
+  background: none;
+  border: none;
+  font: 400 24px/1 var(--font);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 150ms ease;
+}
+
+.pt-detail-close:hover {
+  color: var(--ink);
+}
+
+.pt-detail-list {
+  overflow-y: auto;
+  padding: 8px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pt-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 40%, transparent);
+}
+
+.pt-detail-row:last-child {
+  border-bottom: none;
+}
+
+.pt-detail-col-name {
+  flex: 0 0 40%;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font: 400 12px/1.3 var(--font);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+}
+
+.pt-detail-col-name span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pt-detail-type-icon {
+  flex-shrink: 0;
+  font: 400 10px/1 var(--font);
+  opacity: 0.5;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.pt-detail-col-value {
+  flex: 1;
+  font: 14px/1.4 var(--font);
+  color: var(--ink);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Only show detail sheet on narrow viewports */
+@media (min-width: 768px) {
+  .pt-detail-backdrop,
+  .pt-detail-sheet {
+    display: none !important;
+  }
+}
+
 /* --- Scrollbar styling --- */
 
 .pt-viewport::-webkit-scrollbar {
