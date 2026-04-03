@@ -1228,16 +1228,22 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }
   }
 
-  function filterLabel(f: ColumnFilter): string {
+  function filterLabel(f: ColumnFilter, colIndex?: number): string {
     if (!f) return ''
     switch (f.kind) {
-      case 'range': return `Filtering to ${f.min.toFixed(0)}–${f.max.toFixed(0)}`
+      case 'range': {
+        if (colIndex !== undefined && columns[colIndex].columnType === 'timestamp') {
+          const fmt = (v: number) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
+          return `${fmt(f.min)} – ${fmt(f.max)}`
+        }
+        return `${f.min.toLocaleString(undefined, { maximumFractionDigits: 1 })} – ${f.max.toLocaleString(undefined, { maximumFractionDigits: 1 })}`
+      }
       case 'set': {
         const vals = [...f.values]
         if (vals.length === 1) return vals[0]
-        return `Filtering by ${vals.length} values`
+        return `${vals.length} values`
       }
-      case 'boolean': return `Filtering to ${f.value ? 'Yes' : 'No'}`
+      case 'boolean': return f.value ? 'Yes' : 'No'
     }
   }
 
@@ -1288,7 +1294,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
       if (active) {
         const parts: string[] = []
-        if (f) parts.push(filterLabel(f))
+        if (f) parts.push(filterLabel(f, c))
         const hidden = hiddenLabel(c)
         if (hidden) parts.push(hidden)
 
@@ -1304,7 +1310,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
           const activeFilters: string[] = []
           for (let i = 0; i < columns.length; i++) {
             if (filters[i]) {
-              activeFilters.push(`${columns[i].label}: ${filterLabel(filters[i])}`)
+              activeFilters.push(`${columns[i].label}: ${filterLabel(filters[i], i)}`)
             }
           }
           th.title = `Values filtered by ${activeFilters.join(', ')}`
