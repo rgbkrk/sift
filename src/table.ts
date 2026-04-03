@@ -753,15 +753,12 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   let prevDigits = ''
 
   function updateFlipClock(text: string) {
-    // Ensure we have the right number of slots
+    // Ensure we have the right number of digit spans
     while (flipSlots.length < text.length) {
-      const slot = document.createElement('span')
-      slot.className = 'pt-flip-slot'
-      const digit = document.createElement('span')
-      digit.className = 'pt-flip-digit'
-      slot.appendChild(digit)
-      statFrame.appendChild(slot)
-      flipSlots.push(slot)
+      const span = document.createElement('span')
+      span.className = 'pt-flip-digit'
+      statFrame.appendChild(span)
+      flipSlots.push(span)
     }
     while (flipSlots.length > text.length) {
       statFrame.removeChild(flipSlots.pop()!)
@@ -770,31 +767,16 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     for (let i = 0; i < text.length; i++) {
       const ch = text[i]
       const prev = prevDigits[i]
-      const slot = flipSlots[i]
-      const current = slot.querySelector('.pt-flip-digit') as HTMLSpanElement
+      const span = flipSlots[i]
 
-      // Non-numeric characters (spaces, ·, fps, ms) don't animate
-      const isDigit = ch >= '0' && ch <= '9'
-
-      if (ch !== prev && isDigit) {
-        // Animate: old digit slides up, new digit slides in from below
-        current.classList.add('pt-flip-out')
-        const next = document.createElement('span')
-        next.className = 'pt-flip-digit pt-flip-in'
-        next.textContent = ch
-        slot.appendChild(next)
-
-        // Clean up after animation
-        const oldEl = current
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            next.classList.remove('pt-flip-in')
-            if (oldEl.parentNode === slot) slot.removeChild(oldEl)
-          })
-        })
-      } else {
-        current.textContent = ch
-        current.classList.remove('pt-flip-out', 'pt-flip-in')
+      if (ch !== prev) {
+        span.textContent = ch
+        // Only animate digit characters
+        if (ch >= '0' && ch <= '9') {
+          span.classList.remove('pt-flip-pop')
+          void span.offsetWidth // force reflow to restart animation
+          span.classList.add('pt-flip-pop')
+        }
       }
     }
     prevDigits = text

@@ -713,35 +713,21 @@ h1 {
 /* --- Flip-clock FPS counter --- */
 
 .pt-flip-clock {
-  display: inline-flex;
-  gap: 0;
-  line-height: 1;
-}
-
-.pt-flip-slot {
-  display: inline-block;
-  position: relative;
-  overflow: hidden;
-  height: 1.3em;
-  vertical-align: bottom;
-  border: none;
-  text-decoration: none;
+  display: inline;
 }
 
 .pt-flip-digit {
-  display: block;
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
 }
 
-.pt-flip-out {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: translateY(-100%);
+.pt-flip-pop {
+  animation: flip-pop 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.pt-flip-in {
-  transform: translateY(100%);
+@keyframes flip-pop {
+  0% { transform: translateY(40%); opacity: 0.3; }
+  60% { transform: translateY(-5%); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
 }
 
 /* --- Status indicator --- */
