@@ -310,9 +310,12 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
         {hasOverlay && <VisibleOverlay bins={summary.bins} visibleBins={visibleBins} width={width} />}
         <BrushLayer width={width} min={summary.min} max={summary.max} activeFilter={activeFilter} onFilter={onFilter} />
       </div>
-      <span className="pt-th-range">
-        {formatNum(summary.min)} – {formatNum(summary.max)}
-      </span>
+      {/* Hide range for binary-like columns where the ratio bar says it all */}
+      {!(Number.isInteger(summary.min) && Number.isInteger(summary.max) && summary.max - summary.min <= 1) && (
+        <span className="pt-th-range">
+          {formatNum(summary.min)} – {formatNum(summary.max)}
+        </span>
+      )}
     </div>
   )
 }
