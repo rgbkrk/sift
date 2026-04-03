@@ -1386,6 +1386,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       scheduledRaf = null
     }
     fpsSub.unsubscribe()
+    if (summaryDebounceTimer !== null) clearTimeout(summaryDebounceTimer)
 
     // Remove event listeners and observers
     headerResizeObserver?.disconnect()
@@ -1544,17 +1545,31 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }
   }
 
+  // Debounced summary recomputation — expensive, deferred during brush drag
+  let summaryDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  const SUMMARY_DEBOUNCE_MS = 120
+
+  function scheduleSummaryRecompute() {
+    if (summaryDebounceTimer !== null) clearTimeout(summaryDebounceTimer)
+    summaryDebounceTimer = setTimeout(() => {
+      summaryDebounceTimer = null
+      recomputeFilteredSummaries()
+      renderAllSummaries()
+      updateFilteredLabels()
+    }, SUMMARY_DEBOUNCE_MS)
+  }
+
   function onFilterChanged() {
     applyFilterAndSort()
-    recomputeFilteredSummaries()
+    // Fast path: update rows immediately, defer expensive summary recomputation
     updateRowCountDisplay()
-    updateFilteredLabels()
     rebuildFilterPills()
     // Announce to screen readers
     ariaLive.textContent = hasActiveFilters()
       ? `Filtered to ${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`
       : `${rowCount.toLocaleString()} rows`
-    renderAllSummaries()
+    // Summaries + labels deferred — they're the expensive part
+    scheduleSummaryRecompute()
     viewport.scrollTop = 0
     for (const pr of pool) {
       pr.assignedRow = -1
