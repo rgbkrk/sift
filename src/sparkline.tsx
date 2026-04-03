@@ -110,13 +110,14 @@ function LowCardinalityNumericBars({ summary, activeFilter, onFilter }: {
   activeFilter?: RangeFilter | null
   onFilter: FilterCallback
 }) {
-  // Collect non-zero bins as distinct "categories", using the bin midpoint as label
+  // Check if this looks like an integer column
+  const isIntegerColumn = Number.isInteger(summary.min) && Number.isInteger(summary.max)
+
   const entries = summary.bins
     .filter(b => b.count > 0)
     .map(b => {
-      // Use integer label if both edges are integers and close together
       const mid = (b.x0 + b.x1) / 2
-      const label = Number.isInteger(b.x0) && (b.x1 - b.x0) < 2 ? String(b.x0) : formatNum(mid)
+      const label = isIntegerColumn ? String(Math.round(mid)) : formatNum(mid)
       return { label, count: b.count, x0: b.x0, x1: b.x1 }
     })
 
