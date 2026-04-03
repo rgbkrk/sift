@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Table Viewer', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     // Wait for the table to mount and first batch to render
     await page.waitForSelector('.pt-table-container')
     await page.waitForSelector('.pt-row')

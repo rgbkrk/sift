@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Header Overlap', () => {
   test('first row is visible below header on generated dataset', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     await page.waitForSelector('.pt-table-container')
     await page.waitForSelector('.pt-row')
 

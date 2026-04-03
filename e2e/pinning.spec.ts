@@ -17,7 +17,7 @@ async function clickMenuItem(page: Page, text: string) {
 
 test.describe('Column Pinning', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     await page.waitForSelector('.pt-table-container')
     await page.waitForSelector('.pt-row')
   })

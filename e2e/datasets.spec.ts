@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Dataset Picker', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     await page.waitForSelector('.pt-table-container')
   })
 
@@ -15,7 +15,7 @@ test.describe('Dataset Picker', () => {
     await expect(options.first()).toContainText('Generated')
   })
 
-  test('default dataset is Generated', async ({ page }) => {
+  test('can load generated dataset via URL param', async ({ page }) => {
     const select = page.locator('#dataset-select')
     await expect(select).toHaveValue('generated')
 
@@ -23,10 +23,10 @@ test.describe('Dataset Picker', () => {
     await expect(description).toContainText('synthetic')
   })
 
-  test('switching back to generated removes URL param', async ({ page }) => {
-    // This test only uses the local generated dataset — no HF network needed
+  test('default dataset without param is Spotify', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.pt-table-container', { timeout: 90_000 })
     const select = page.locator('#dataset-select')
-    await expect(select).toHaveValue('generated')
-    expect(page.url()).not.toContain('dataset=')
+    await expect(select).toHaveValue('spotify')
   })
 })

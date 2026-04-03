@@ -9,7 +9,7 @@ test.describe('Mobile Viewport', () => {
   test.use({ viewport: { width: 390, height: 844 } }) // iPhone 14
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     await page.waitForSelector('.pt-table-container')
     await page.waitForSelector('.pt-row')
   })

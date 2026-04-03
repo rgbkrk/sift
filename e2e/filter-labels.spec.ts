@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Filter Labels', () => {
   test('timestamp filter label shows formatted date, not epoch', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     await page.waitForSelector('.pt-table-container')
     await expect(page.locator('.pt-stat-rows')).toContainText('100,000', { timeout: 10_000 })
 

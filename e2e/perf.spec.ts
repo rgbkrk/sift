@@ -24,7 +24,7 @@ function record(metric: string, value: number, unit: string) {
 
 test.describe('Performance Benchmarks (100k rows)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     await page.waitForSelector('.pt-table-container')
     // Wait for all 100k rows to stream in
     await expect(page.locator('.pt-stat-rows')).toContainText('100,000', { timeout: 30_000 })
@@ -32,7 +32,7 @@ test.describe('Performance Benchmarks (100k rows)', () => {
 
   test('mount and stream all batches', async ({ page }) => {
     const start = Date.now()
-    await page.goto('/')
+    await page.goto('/?dataset=generated')
     await page.waitForSelector('.pt-table-container')
     const firstBatch = Date.now() - start
 
