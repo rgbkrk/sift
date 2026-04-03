@@ -2,6 +2,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { createPortal } from 'react-dom'
 import { useRef, useCallback, useState, useMemo, useEffect } from 'react'
 import { BarChart } from 'semiotic/ordinal'
+import { AreaChart } from 'semiotic/xy'
 import type {
   NumericColumnSummary,
   CategoricalColumnSummary,
@@ -486,25 +487,30 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
 }) {
   const [minLabel, maxLabel] = formatDateRange(summary.min, summary.max)
 
-  const data = summary.bins.map((bin, i) => ({ bin: i, count: bin.count }))
+  // Area chart data: x = bin midpoint timestamp, y = count
+  const areaData = useMemo(() =>
+    summary.bins.map(bin => ({
+      x: (bin.x0 + bin.x1) / 2,
+      y: bin.count,
+    })),
+    [summary.bins],
+  )
   const hasOverlay = visibleBins && Math.max(...visibleBins) > 0
   const isFiltered = !!activeFilter
 
   return (
     <div>
       <div style={{ position: 'relative', width, height: CHART_HEIGHT }}>
-        <BarChart
-          data={data}
-          categoryAccessor="bin"
-          valueAccessor="count"
+        <AreaChart
+          data={areaData}
+          xAccessor="x"
+          yAccessor="y"
           width={width}
           height={CHART_HEIGHT}
-          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          color={isFiltered ? 'rgba(149, 95, 59, 0.15)' : hasOverlay ? 'rgba(149, 95, 59, 0.2)' : 'rgba(149, 95, 59, 0.7)'}
-          barPadding={1}
+          margin={{ top: 1, right: 0, bottom: 0, left: 0 }}
+          color={isFiltered ? 'rgba(149, 95, 59, 0.15)' : hasOverlay ? 'rgba(149, 95, 59, 0.2)' : 'rgba(149, 95, 59, 0.5)'}
           enableHover={false}
           showGrid={false}
-          showCategoryTicks={false}
           accessibleTable={false}
         />
         {hasOverlay && <VisibleOverlay bins={summary.bins} visibleBins={visibleBins} width={width} />}
