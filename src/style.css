@@ -722,8 +722,10 @@ h1 {
   display: inline-block;
   position: relative;
   overflow: hidden;
-  height: 1.2em;
+  height: 1.3em;
   vertical-align: bottom;
+  border: none;
+  text-decoration: none;
 }
 
 .pt-flip-digit {
