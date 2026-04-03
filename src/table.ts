@@ -1361,6 +1361,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }
   }
   recomputePinnedOffsets()
+  // Apply initial pinned styles to header THs (not just cells)
+  updatePinnedStyles()
 
   function applyCellPinStyle(cell: HTMLElement, colIndex: number) {
     if (pinnedColumns.has(colIndex)) {
