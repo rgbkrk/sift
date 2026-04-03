@@ -26,6 +26,7 @@ export default defineConfig({
         'semiotic',
         'semiotic/ordinal',
         '@chenglou/pretext',
+        /^@radix-ui\//,
       ],
     },
   },
