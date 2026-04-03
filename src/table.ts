@@ -450,9 +450,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       }
     })
 
-    // Right-click context menu
-    th.addEventListener('contextmenu', (e) => {
-      e.preventDefault()
+    // Context menu: right-click (desktop) + long-press (mobile)
+    function openColumnMenu(x: number, y: number) {
       mountColumnMenu(
         {
           colIndex: c,
@@ -460,11 +459,33 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
           colType: columns[c].columnType,
           isPinned: pinnedColumns.has(c),
           sortDirection: sortState?.col === c ? sortState.dir : null,
-          x: e.clientX,
-          y: e.clientY,
+          x, y,
         },
         handleColumnAction,
       )
+    }
+
+    th.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
+      openColumnMenu(e.clientX, e.clientY)
+    })
+
+    // Long-press for touch devices (500ms threshold)
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null
+    th.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0]
+      const startX = touch.clientX
+      const startY = touch.clientY
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null
+        openColumnMenu(startX, startY)
+      }, 500)
+    }, { passive: true })
+    th.addEventListener('touchmove', () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null }
+    }, { passive: true })
+    th.addEventListener('touchend', () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null }
     })
 
     if (c < columns.length - 1) {
