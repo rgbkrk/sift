@@ -25,8 +25,6 @@ export default defineConfig({
         'react-dom/client',
         'react/jsx-runtime',
         'apache-arrow',
-        'semiotic',
-        'semiotic/ordinal',
         '@chenglou/pretext',
         /^@radix-ui\//,
       ],

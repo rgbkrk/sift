@@ -1,6 +1,5 @@
 import { createRoot, type Root } from 'react-dom/client'
 import { useRef, useCallback, useState, useMemo, useEffect } from 'react'
-import { BarChart } from 'semiotic/ordinal'
 import { Popover, PopoverTrigger, PopoverContent } from './components/ui/popover'
 import type {
   NumericColumnSummary,
@@ -182,27 +181,39 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
     return <LowCardinalityNumericBars summary={summary} activeFilter={activeFilter} onFilter={onFilter} />
   }
 
-  const data = summary.bins.map((bin, i) => ({ bin: i, count: bin.count }))
   const hasOverlay = visibleBins && Math.max(...visibleBins) > 0
   const isFiltered = !!activeFilter
+  const maxCount = Math.max(...summary.bins.map(b => b.count))
+  const numBins = summary.bins.length
+  const gap = 1
+  const barW = Math.max(1, (width - (numBins - 1) * gap) / numBins)
+  const fillColor = isFiltered ? 'rgba(149, 95, 59, 0.15)' : hasOverlay ? 'rgba(149, 95, 59, 0.2)' : 'rgba(149, 95, 59, 0.7)'
 
   return (
     <div>
       <div style={{ position: 'relative', width, height: CHART_HEIGHT }}>
-        <BarChart
-          data={data}
-          categoryAccessor="bin"
-          valueAccessor="count"
+        <svg
           width={width}
           height={CHART_HEIGHT}
-          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          color={isFiltered ? 'rgba(149, 95, 59, 0.15)' : hasOverlay ? 'rgba(149, 95, 59, 0.2)' : 'rgba(149, 95, 59, 0.7)'}
-          barPadding={1}
-          enableHover={false}
-          showGrid={false}
-          showCategoryTicks={false}
-          accessibleTable={false}
-        />
+          viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
+          style={{ display: 'block' }}
+        >
+          {maxCount > 0 && summary.bins.map((bin, i) => {
+            if (bin.count <= 0) return null
+            const x = i * (barW + gap)
+            const h = (bin.count / maxCount) * CHART_HEIGHT
+            return (
+              <rect
+                key={i}
+                x={x}
+                y={CHART_HEIGHT - h}
+                width={barW}
+                height={h}
+                fill={fillColor}
+              />
+            )
+          })}
+        </svg>
         {hasOverlay && <VisibleOverlay bins={summary.bins} visibleBins={visibleBins} width={width} />}
         <BrushLayer width={width} min={summary.min} max={summary.max} activeFilter={activeFilter} onFilter={onFilter} />
       </div>
@@ -529,27 +540,38 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
 }) {
   const [minLabel, maxLabel] = formatDateRange(summary.min, summary.max)
 
-  const data = summary.bins.map((bin, i) => ({ bin: i, count: bin.count }))
   const hasOverlay = visibleBins && Math.max(...visibleBins) > 0
   const isFiltered = !!activeFilter
+  const maxCount = Math.max(...summary.bins.map(b => b.count))
+  const numBins = summary.bins.length
+  const barW = width / numBins
+  const fillColor = isFiltered ? 'rgba(149, 95, 59, 0.12)' : hasOverlay ? 'rgba(149, 95, 59, 0.18)' : 'rgba(149, 95, 59, 0.55)'
 
   return (
     <div>
       <div style={{ position: 'relative', width, height: CHART_HEIGHT }}>
-        <BarChart
-          data={data}
-          categoryAccessor="bin"
-          valueAccessor="count"
+        <svg
           width={width}
           height={CHART_HEIGHT}
-          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          color={isFiltered ? 'rgba(149, 95, 59, 0.12)' : hasOverlay ? 'rgba(149, 95, 59, 0.18)' : 'rgba(149, 95, 59, 0.55)'}
-          barPadding={0}
-          enableHover={false}
-          showGrid={false}
-          showCategoryTicks={false}
-          accessibleTable={false}
-        />
+          viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
+          style={{ display: 'block' }}
+        >
+          {maxCount > 0 && summary.bins.map((bin, i) => {
+            if (bin.count <= 0) return null
+            const x = i * barW
+            const h = (bin.count / maxCount) * CHART_HEIGHT
+            return (
+              <rect
+                key={i}
+                x={x}
+                y={CHART_HEIGHT - h}
+                width={barW}
+                height={h}
+                fill={fillColor}
+              />
+            )
+          })}
+        </svg>
         {hasOverlay && <VisibleOverlay bins={summary.bins} visibleBins={visibleBins} width={width} />}
         <BrushLayer width={width} min={summary.min} max={summary.max} activeFilter={activeFilter} onFilter={onFilter} />
       </div>
