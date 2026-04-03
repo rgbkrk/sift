@@ -13,6 +13,7 @@
   --rule: #d8cec3;
   --accent: #955f3b;
   --row-alt: rgba(0, 0, 0, 0.018);
+  --pin-shadow: rgba(0, 0, 0, 0.06);
   --font: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
@@ -26,6 +27,7 @@
     --rule: #3a3533;
     --accent: #d4896a;
     --row-alt: rgba(255, 255, 255, 0.025);
+    --pin-shadow: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -38,6 +40,7 @@
   --rule: #3a3533;
   --accent: #d4896a;
   --row-alt: rgba(255, 255, 255, 0.025);
+  --pin-shadow: rgba(255, 255, 255, 0.08);
 }
 
 body {
@@ -536,7 +539,7 @@ h1 {
   left: 0;
   z-index: 1;
   background: var(--panel);
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 2px 0 4px var(--pin-shadow);
 }
 
 .pt-row-alt .pt-cell:first-child {
@@ -548,7 +551,7 @@ h1 {
   left: 0;
   z-index: 3;
   background: color-mix(in srgb, var(--panel) 90%, var(--page) 10%);
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 2px 0 4px var(--pin-shadow);
 }
 
 /* --- Type-aware cells --- */

@@ -1368,7 +1368,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       cell.style.left = pinnedLeftOffsets[colIndex] + 'px'
       cell.style.zIndex = '1'
       cell.style.background = 'var(--panel)'
-      cell.style.boxShadow = '2px 0 4px rgba(0,0,0,0.04)'
+      cell.style.boxShadow = '2px 0 4px var(--pin-shadow)'
     } else {
       cell.style.position = ''
       cell.style.left = ''
@@ -1416,7 +1416,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         th.style.left = pinnedLeftOffsets[dataCol] + 'px'
         th.style.zIndex = '6'
         th.style.background = 'color-mix(in srgb, var(--panel) 90%, var(--page) 10%)'
-        th.style.boxShadow = vi === lastPinnedVi ? '2px 0 4px rgba(0,0,0,0.04)' : ''
+        th.style.boxShadow = vi === lastPinnedVi ? '2px 0 4px var(--pin-shadow)' : ''
         // Hide resize bar on last pinned column (shadow provides the edge)
         if (handle) handle.style.opacity = vi === lastPinnedVi ? '0' : ''
       } else {
