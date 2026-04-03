@@ -720,7 +720,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     return s
   }
 
-  let prevRange = '', prevDom = '', prevFrame = ''
+  let prevRange = '', prevDom = '', prevFps = ''
+
+  // Rolling window of frame times for FPS calculation
+  const FPS_WINDOW = 60
+  const frameTimes: number[] = []
 
   function updateStat(el: HTMLSpanElement, value: string, prev: string): string {
     if (value !== prev) {
@@ -982,10 +986,17 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const elapsed = performance.now() - t0
     const rangeStr = `showing ${first}–${Math.min(last, filteredCount - 1)}`
     const domStr = `${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
-    const frameStr = `${elapsed.toFixed(1)}ms frame`
+
+    // Rolling FPS: track last N frame times, compute average
+    frameTimes.push(elapsed)
+    if (frameTimes.length > FPS_WINDOW) frameTimes.shift()
+    const avgFrame = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length
+    const fps = Math.round(1000 / avgFrame)
+    const fpsStr = `${fps} fps`
+
     prevRange = updateStat(statRange, rangeStr, prevRange)
     prevDom = updateStat(statDom, domStr, prevDom)
-    prevFrame = updateStat(statFrame, frameStr, prevFrame)
+    prevFps = updateStat(statFrame, fpsStr, prevFps)
   }
 
   // --- Scroll handler ---
