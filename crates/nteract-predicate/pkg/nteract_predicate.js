@@ -230,6 +230,28 @@ export function get_viewport_by_indices(handle, indices) {
 }
 
 /**
+ * Check if a column has been cast (i.e. original data is saved and can be restored).
+ * @param {number} handle
+ * @param {number} col
+ * @returns {boolean}
+ */
+export function has_original_column(handle, col) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.has_original_column(retptr, handle, col);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return r0 !== 0;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Compute a histogram (binned counts) for a numeric column.
  *
  * Takes: Arrow IPC bytes, column index, number of bins
@@ -584,6 +606,38 @@ export function string_contains(ipc_bytes, column_index, query) {
         return v3;
     } finally {
         wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Undo a column cast, restoring the original column data and type.
+ * Returns the original column type string (e.g. "categorical", "numeric").
+ * @param {number} handle
+ * @param {number} col
+ * @returns {string}
+ */
+export function undo_cast_column(handle, col) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.undo_cast_column(retptr, handle, col);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr1 = r0;
+        var len1 = r1;
+        if (r3) {
+            ptr1 = 0; len1 = 0;
+            throw takeObject(r2);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export3(deferred2_0, deferred2_1, 1);
     }
 }
 

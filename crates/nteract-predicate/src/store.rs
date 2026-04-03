@@ -616,6 +616,50 @@ pub fn load_parquet_row_group(parquet_bytes: &[u8], row_group: usize, handle: u3
     }
 }
 
+/// Check if a column has been cast (i.e. original data is saved and can be restored).
+#[wasm_bindgen]
+pub fn has_original_column(handle: u32, col: usize) -> Result<bool, JsValue> {
+    with_store(handle, |s| {
+        s.original_columns.contains_key(&col)
+    }).map_err(|e| JsValue::from_str(&e))
+}
+
+/// Undo a column cast, restoring the original column data and type.
+/// Returns the original column type string (e.g. "categorical", "numeric").
+#[wasm_bindgen]
+pub fn undo_cast_column(handle: u32, col: usize) -> Result<String, JsValue> {
+    with_stores(|stores| {
+        let store = stores.get_mut(&handle)
+            .ok_or_else(|| JsValue::from_str(&format!("Invalid handle: {}", handle)))?;
+
+        let (original_cols, original_type) = store.original_columns.remove(&col)
+            .ok_or_else(|| JsValue::from_str(&format!("Column {} has not been cast", col)))?;
+
+        let mut new_batches = Vec::new();
+        for (batch_idx, batch) in store.batches.iter().enumerate() {
+            let mut columns: Vec<arrow::array::ArrayRef> = Vec::new();
+            for i in 0..batch.num_columns() {
+                if i == col {
+                    columns.push(original_cols[batch_idx].clone());
+                } else {
+                    columns.push(batch.column(i).clone());
+                }
+            }
+            let mut fields: Vec<arrow::datatypes::FieldRef> = batch.schema().fields().iter().cloned().collect();
+            fields[col] = std::sync::Arc::new(
+                arrow::datatypes::Field::new(fields[col].name(), original_cols[batch_idx].data_type().clone(), true)
+            );
+            let new_schema = std::sync::Arc::new(arrow::datatypes::Schema::new(fields));
+            new_batches.push(RecordBatch::try_new(new_schema, columns)
+                .map_err(|e| JsValue::from_str(&format!("Batch rebuild error: {}", e)))?);
+        }
+        store.batches = new_batches;
+        store.col_types[col] = original_type.clone();
+
+        Ok(original_type)
+    })
+}
+
 /// Cast a column to a different type in-place.
 /// Supported casts: string→timestamp (parse ISO dates), string→numeric, etc.
 /// Uses arrow-cast for type conversion. Updates the store's column type metadata.
@@ -702,9 +746,19 @@ pub fn cast_column(handle: u32, col: usize, target_type: &str) -> Result<(), JsV
                 }
                 std::sync::Arc::new(builder.finish()) as arrow::array::ArrayRef
             } else {
-                // Use arrow-cast for other conversions
-                arrow_cast::cast::cast(column.as_ref(), &target_dt)
-                    .map_err(|e| JsValue::from_str(&format!("Cast error: {}", e)))?
+                // Use arrow-cast for other conversions.
+                // Wrap in catch_unwind because some casts panic instead of returning Err
+                // (e.g., casting text with non-numeric values to Float64).
+                let col_ref = column.clone();
+                let dt = target_dt.clone();
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    arrow_cast::cast::cast(col_ref.as_ref(), &dt)
+                }));
+                match result {
+                    Ok(Ok(arr)) => arr,
+                    Ok(Err(e)) => return Err(JsValue::from_str(&format!("Cast error: {}", e))),
+                    Err(_) => return Err(JsValue::from_str("Cast failed: incompatible data for target type")),
+                }
             };
 
             // Rebuild the batch with the casted column

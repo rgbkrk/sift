@@ -57,6 +57,11 @@ export function get_viewport(handle: number, start_row: number, end_row: number)
 export function get_viewport_by_indices(handle: number, indices: Uint32Array): Uint8Array;
 
 /**
+ * Check if a column has been cast (i.e. original data is saved and can be restored).
+ */
+export function has_original_column(handle: number, col: number): boolean;
+
+/**
  * Compute a histogram (binned counts) for a numeric column.
  *
  * Takes: Arrow IPC bytes, column index, number of bins
@@ -147,6 +152,12 @@ export function store_value_counts(handle: number, col: number): any;
 export function string_contains(ipc_bytes: Uint8Array, column_index: number, query: string): Uint32Array;
 
 /**
+ * Undo a column cast, restoring the original column data and type.
+ * Returns the original column type string (e.g. "categorical", "numeric").
+ */
+export function undo_cast_column(handle: number, col: number): string;
+
+/**
  * Compute a frequency table (value_counts) for a string column
  * passed as Arrow IPC bytes.
  *
@@ -167,6 +178,7 @@ export interface InitOutput {
     readonly get_cell_string: (a: number, b: number, c: number, d: number) => void;
     readonly get_viewport: (a: number, b: number, c: number, d: number) => void;
     readonly get_viewport_by_indices: (a: number, b: number, c: number, d: number) => void;
+    readonly has_original_column: (a: number, b: number, c: number) => void;
     readonly is_null: (a: number, b: number, c: number, d: number) => void;
     readonly load_ipc: (a: number, b: number, c: number) => void;
     readonly load_parquet: (a: number, b: number, c: number) => void;
@@ -179,6 +191,7 @@ export interface InitOutput {
     readonly store_histogram: (a: number, b: number, c: number, d: number) => void;
     readonly store_sort_indices: (a: number, b: number, c: number, d: number) => void;
     readonly store_value_counts: (a: number, b: number, c: number) => void;
+    readonly undo_cast_column: (a: number, b: number, c: number) => void;
     readonly filter_rows: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly histogram: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly init: () => void;

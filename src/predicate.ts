@@ -13,6 +13,8 @@ type PredicateModule = {
   parquet_schema_metadata(parquet_bytes: Uint8Array): Record<string, string>
   load_parquet_row_group(parquet_bytes: Uint8Array, row_group: number, handle: number): number
   cast_column(handle: number, col: number, target_type: string): void
+  has_original_column(handle: number, col: number): boolean
+  undo_cast_column(handle: number, col: number): string
   free(handle: number): void
   num_rows(handle: number): number
   num_cols(handle: number): number

@@ -78,6 +78,10 @@ export type TableData = {
   prefetchViewport?: (dataRowIndices: number[]) => void
   /** Optional: cast a column to a different type (WASM type override). */
   castColumn?: (colIndex: number, targetType: ColumnType) => void
+  /** Optional: undo a column cast, restoring original type. Returns the original type. */
+  undoCastColumn?: (colIndex: number) => ColumnType
+  /** Optional: check if a column has been cast (can be undone). */
+  isColumnCast?: (colIndex: number) => boolean
   /** Optional: recompute all column summaries (e.g. after a cast changes the data). */
   recomputeSummaries?: () => void
   /** Optional: return sorted row indices for a column (WASM sort optimization). */
@@ -471,6 +475,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
           colName: columns[c].label,
           colType: columns[c].columnType,
           isPinned: pinnedColumns.has(c),
+          isCast: data.isColumnCast ? data.isColumnCast(c) : false,
           sortDirection: sortState?.col === c ? sortState.dir : null,
           x, y,
         },
@@ -1496,7 +1501,12 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
       case 'cast':
         if (data.castColumn) {
-          data.castColumn(colIndex, action.targetType)
+          try {
+            data.castColumn(colIndex, action.targetType)
+          } catch (e) {
+            console.warn('Cast failed:', e)
+            break
+          }
           // Update the column metadata
           columns[colIndex].columnType = action.targetType
           columns[colIndex].numeric = action.targetType === 'numeric'
@@ -1508,6 +1518,32 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
               : action.targetType === 'boolean' ? '◉'
               : action.targetType === 'timestamp' ? '◷' : 'Aa'
             icon.setAttribute('title', action.targetType)
+          }
+          // Recompute summaries from source (WASM or accumulators)
+          if (data.recomputeSummaries) data.recomputeSummaries()
+          unfilteredSummaries = [...data.columnSummaries]
+          if (hasActiveFilters()) recomputeFilteredSummaries()
+          renderAllSummaries()
+          heightsDirty = true
+          for (const pr of pool) { pr.assignedRow = -1; pr.el.style.display = 'none' }
+          scheduleRender()
+        }
+        break
+
+      case 'undo-cast':
+        if (data.undoCastColumn) {
+          const restoredType = data.undoCastColumn(colIndex)
+          // Update the column metadata
+          columns[colIndex].columnType = restoredType
+          columns[colIndex].numeric = restoredType === 'numeric'
+          // Update type icon
+          const thsUndo = headerRowEl.children as HTMLCollectionOf<HTMLDivElement>
+          const iconUndo = thsUndo[colIndex].querySelector('.pt-type-icon')
+          if (iconUndo) {
+            iconUndo.textContent = restoredType === 'numeric' ? '#'
+              : restoredType === 'boolean' ? '◉'
+              : restoredType === 'timestamp' ? '◷' : 'Aa'
+            iconUndo.setAttribute('title', restoredType)
           }
           // Recompute summaries from source (WASM or accumulators)
           if (data.recomputeSummaries) data.recomputeSummaries()

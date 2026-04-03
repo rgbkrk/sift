@@ -10,12 +10,14 @@ export type ColumnAction =
   | { kind: 'pin' }
   | { kind: 'unpin' }
   | { kind: 'cast'; targetType: ColumnType }
+  | { kind: 'undo-cast' }
 
 export type ColumnMenuState = {
   colIndex: number
   colName: string
   colType: ColumnType
   isPinned: boolean
+  isCast: boolean
   sortDirection: 'asc' | 'desc' | null
   x: number
   y: number
@@ -53,7 +55,7 @@ export function ColumnContextMenu({ state, onAction, onClose }: Props) {
 
   if (!state) return null
 
-  const { colIndex, colName, colType, isPinned, sortDirection, x, y } = state
+  const { colIndex, colName, colType, isPinned, isCast, sortDirection, x, y } = state
 
   function act(action: ColumnAction) {
     onAction(colIndex, action)
@@ -105,6 +107,15 @@ export function ColumnContextMenu({ state, onAction, onClose }: Props) {
       <MenuItem onClick={() => act({ kind: 'cast', targetType: 'boolean' })}>
         Boolean {colType === 'boolean' && <Check />}
       </MenuItem>
+
+      {isCast && (
+        <>
+          <div className="h-px bg-[var(--rule)] -mx-1 my-1" />
+          <MenuItem onClick={() => act({ kind: 'undo-cast' })}>
+            Revert to original type
+          </MenuItem>
+        </>
+      )}
     </div>
   )
 }

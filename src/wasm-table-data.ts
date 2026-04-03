@@ -147,6 +147,16 @@ export function createWasmTableData(handle: number): WasmTableHandle {
       columns[colIndex].columnType = targetType
       columns[colIndex].numeric = targetType === 'numeric'
     },
+    undoCastColumn(colIndex: number): ColumnType {
+      const originalType = mod.undo_cast_column(handle, colIndex) as ColumnType
+      cache.clear()
+      columns[colIndex].columnType = originalType
+      columns[colIndex].numeric = originalType === 'numeric'
+      return originalType
+    },
+    isColumnCast(colIndex: number): boolean {
+      return mod.has_original_column(handle, colIndex)
+    },
     sortColumn(colIndex: number, ascending: boolean): Uint32Array {
       return mod.store_sort_indices(handle, colIndex, ascending)
     },
