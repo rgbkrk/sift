@@ -73,6 +73,8 @@ export type TableData = {
   prefetchViewport?: (dataRowIndices: number[]) => void
   /** Optional: cast a column to a different type (WASM type override). */
   castColumn?: (colIndex: number, targetType: ColumnType) => void
+  /** Optional: recompute all column summaries (e.g. after a cast changes the data). */
+  recomputeSummaries?: () => void
   /** Optional: return sorted row indices for a column (WASM sort optimization). */
   sortColumn?: (colIndex: number, ascending: boolean) => Uint32Array
 }
@@ -1473,8 +1475,10 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
               : action.targetType === 'timestamp' ? '◷' : 'Aa'
             icon.setAttribute('title', action.targetType)
           }
-          // Recompute summaries and re-render
-          recomputeFilteredSummaries()
+          // Recompute summaries from source (WASM or accumulators)
+          if (data.recomputeSummaries) data.recomputeSummaries()
+          unfilteredSummaries = [...data.columnSummaries]
+          if (hasActiveFilters()) recomputeFilteredSummaries()
           renderAllSummaries()
           heightsDirty = true
           for (const pr of pool) { pr.assignedRow = -1; pr.el.style.display = 'none' }

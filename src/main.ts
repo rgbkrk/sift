@@ -225,6 +225,7 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
 
   const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
   tableData.prefetchViewport = prefetchViewport
+  tableData.recomputeSummaries = () => updateWasmSummaries(mod, handle, tableData, columns)
 
   // Compute initial summaries from first row group
   updateWasmSummaries(mod, handle, tableData, columns)
