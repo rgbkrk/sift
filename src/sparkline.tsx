@@ -472,8 +472,8 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
           width={width}
           height={CHART_HEIGHT}
           margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          color={isFiltered ? 'rgba(149, 95, 59, 0.15)' : hasOverlay ? 'rgba(149, 95, 59, 0.2)' : 'rgba(149, 95, 59, 0.7)'}
-          barPadding={1}
+          color={isFiltered ? 'rgba(149, 95, 59, 0.12)' : hasOverlay ? 'rgba(149, 95, 59, 0.18)' : 'rgba(149, 95, 59, 0.55)'}
+          barPadding={0}
           enableHover={false}
           showGrid={false}
           showCategoryTicks={false}
