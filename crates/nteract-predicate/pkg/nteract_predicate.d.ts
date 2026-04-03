@@ -125,6 +125,21 @@ export function parquet_schema_metadata(parquet_bytes: Uint8Array): any;
 export function store_bool_counts(handle: number, col: number): Uint32Array;
 
 /**
+ * Filtered bool counts: returns [true_count, false_count, null_count] for masked rows.
+ */
+export function store_filtered_bool_counts(handle: number, col: number, mask: Uint8Array): Uint32Array;
+
+/**
+ * Filtered histogram: computes bins only for rows where mask[row] != 0.
+ */
+export function store_filtered_histogram(handle: number, col: number, mask: Uint8Array, num_bins: number): any;
+
+/**
+ * Filtered value_counts: counts string values only for rows where mask[row] != 0.
+ */
+export function store_filtered_value_counts(handle: number, col: number, mask: Uint8Array): any;
+
+/**
  * Compute histogram for a numeric column in a loaded store.
  */
 export function store_histogram(handle: number, col: number, num_bins: number): any;
@@ -188,6 +203,9 @@ export interface InitOutput {
     readonly parquet_metadata: (a: number, b: number, c: number) => void;
     readonly parquet_schema_metadata: (a: number, b: number, c: number) => void;
     readonly store_bool_counts: (a: number, b: number, c: number) => void;
+    readonly store_filtered_bool_counts: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly store_filtered_histogram: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+    readonly store_filtered_value_counts: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly store_histogram: (a: number, b: number, c: number, d: number) => void;
     readonly store_sort_indices: (a: number, b: number, c: number, d: number) => void;
     readonly store_value_counts: (a: number, b: number, c: number) => void;

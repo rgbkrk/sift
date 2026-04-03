@@ -415,6 +415,169 @@ pub fn store_bool_counts(handle: u32, col: usize) -> Result<Vec<u32>, JsValue> {
     }).map_err(|e| JsValue::from_str(&e))
 }
 
+// --- Filtered summaries (crossfilter) ---
+// These take a byte mask (one byte per row, 0 = excluded, nonzero = included).
+// Iterates batches once, checks mask per row — no allocation of filtered copies.
+
+/// Filtered histogram: computes bins only for rows where mask[row] != 0.
+#[wasm_bindgen]
+pub fn store_filtered_histogram(handle: u32, col: usize, mask: &[u8], num_bins: usize) -> Result<JsValue, JsValue> {
+    with_store(handle, |s| {
+        let mut values: Vec<f64> = Vec::new();
+        let mut global_row: usize = 0;
+        for batch in &s.batches {
+            let column = batch.column(col);
+            let n = column.len();
+            match column.data_type() {
+                DataType::Float64 => {
+                    let arr = column.as_any().downcast_ref::<Float64Array>().unwrap();
+                    for i in 0..n {
+                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                            let v = arr.value(i);
+                            if v.is_finite() { values.push(v); }
+                        }
+                    }
+                }
+                DataType::Int32 => {
+                    let arr = column.as_any().downcast_ref::<Int32Array>().unwrap();
+                    for i in 0..n {
+                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                            values.push(arr.value(i) as f64);
+                        }
+                    }
+                }
+                DataType::Int64 => {
+                    let arr = column.as_any().downcast_ref::<Int64Array>().unwrap();
+                    for i in 0..n {
+                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                            values.push(arr.value(i) as f64);
+                        }
+                    }
+                }
+                DataType::Timestamp(_, _) => {
+                    // Timestamps stored as i64 milliseconds
+                    let arr = column.as_any().downcast_ref::<arrow::array::TimestampMillisecondArray>();
+                    if let Some(arr) = arr {
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                                values.push(arr.value(i) as f64);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+            global_row += n;
+        }
+        if values.is_empty() {
+            return serde_wasm_bindgen::to_value(&Vec::<HistogramBin>::new()).unwrap();
+        }
+        let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let bin_width = if (max - min).abs() < f64::EPSILON { 1.0 } else { (max - min) / num_bins as f64 };
+        let mut bins: Vec<HistogramBin> = (0..num_bins)
+            .map(|i| HistogramBin {
+                x0: min + i as f64 * bin_width,
+                x1: min + (i + 1) as f64 * bin_width,
+                count: 0,
+            })
+            .collect();
+        for v in &values {
+            let mut idx = ((v - min) / bin_width) as usize;
+            if idx >= num_bins { idx = num_bins - 1; }
+            bins[idx].count += 1;
+        }
+        serde_wasm_bindgen::to_value(&bins).unwrap()
+    }).map_err(|e| JsValue::from_str(&e))
+}
+
+/// Filtered value_counts: counts string values only for rows where mask[row] != 0.
+#[wasm_bindgen]
+pub fn store_filtered_value_counts(handle: u32, col: usize, mask: &[u8]) -> Result<JsValue, JsValue> {
+    with_store(handle, |s| {
+        let mut freq: HashMap<String, u32> = HashMap::new();
+        let mut global_row: usize = 0;
+        for batch in &s.batches {
+            let column = batch.column(col);
+            let n = column.len();
+            match column.data_type() {
+                DataType::Utf8 | DataType::LargeUtf8 => {
+                    let arr = column.as_any().downcast_ref::<StringArray>().unwrap();
+                    for i in 0..n {
+                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                            *freq.entry(arr.value(i).to_string()).or_insert(0) += 1;
+                        }
+                    }
+                }
+                DataType::Dictionary(_, _) => {
+                    let dict_arr = column.as_any_dictionary();
+                    let keys = dict_arr.keys();
+                    let values = dict_arr.values();
+                    if let Some(str_values) = values.as_any().downcast_ref::<StringArray>() {
+                        if let Some(int_keys) = keys.as_any().downcast_ref::<Int32Array>() {
+                            for i in 0..n {
+                                if global_row + i < mask.len() && mask[global_row + i] != 0 && !int_keys.is_null(i) {
+                                    let key = int_keys.value(i) as usize;
+                                    *freq.entry(str_values.value(key).to_string()).or_insert(0) += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+                DataType::Boolean => {
+                    let arr = column.as_any().downcast_ref::<BooleanArray>().unwrap();
+                    for i in 0..n {
+                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                            let key = if arr.value(i) { "Yes" } else { "No" };
+                            *freq.entry(key.to_string()).or_insert(0) += 1;
+                        }
+                    }
+                }
+                _ => {
+                    for i in 0..n {
+                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !column.is_null(i) {
+                            *freq.entry(format!("{}", i)).or_insert(0) += 1;
+                        }
+                    }
+                }
+            }
+            global_row += n;
+        }
+        let mut counts: Vec<CategoryCount> = freq
+            .into_iter()
+            .map(|(label, count)| CategoryCount { label, count })
+            .collect();
+        counts.sort_by(|a, b| b.count.cmp(&a.count));
+        serde_wasm_bindgen::to_value(&counts).unwrap()
+    }).map_err(|e| JsValue::from_str(&e))
+}
+
+/// Filtered bool counts: returns [true_count, false_count, null_count] for masked rows.
+#[wasm_bindgen]
+pub fn store_filtered_bool_counts(handle: u32, col: usize, mask: &[u8]) -> Result<Vec<u32>, JsValue> {
+    with_store(handle, |s| {
+        let mut true_count: u32 = 0;
+        let mut false_count: u32 = 0;
+        let mut null_count: u32 = 0;
+        let mut global_row: usize = 0;
+        for batch in &s.batches {
+            let column = batch.column(col);
+            let n = column.len();
+            if let Some(arr) = column.as_any().downcast_ref::<BooleanArray>() {
+                for i in 0..n {
+                    if global_row + i < mask.len() && mask[global_row + i] != 0 {
+                        if arr.is_null(i) { null_count += 1; }
+                        else if arr.value(i) { true_count += 1; }
+                        else { false_count += 1; }
+                    }
+                }
+            }
+            global_row += n;
+        }
+        vec![true_count, false_count, null_count]
+    }).map_err(|e| JsValue::from_str(&e))
+}
+
 /// Sort a column and return sorted row indices.
 /// `ascending`: true for asc, false for desc.
 /// Nulls are always sorted to the end.

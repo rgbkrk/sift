@@ -502,6 +502,85 @@ export function store_bool_counts(handle, col) {
 }
 
 /**
+ * Filtered bool counts: returns [true_count, false_count, null_count] for masked rows.
+ * @param {number} handle
+ * @param {number} col
+ * @param {Uint8Array} mask
+ * @returns {Uint32Array}
+ */
+export function store_filtered_bool_counts(handle, col, mask) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(mask, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.store_filtered_bool_counts(retptr, handle, col, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        if (r3) {
+            throw takeObject(r2);
+        }
+        var v2 = getArrayU32FromWasm0(r0, r1).slice();
+        wasm.__wbindgen_export3(r0, r1 * 4, 4);
+        return v2;
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Filtered histogram: computes bins only for rows where mask[row] != 0.
+ * @param {number} handle
+ * @param {number} col
+ * @param {Uint8Array} mask
+ * @param {number} num_bins
+ * @returns {any}
+ */
+export function store_filtered_histogram(handle, col, mask, num_bins) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(mask, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.store_filtered_histogram(retptr, handle, col, ptr0, len0, num_bins);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Filtered value_counts: counts string values only for rows where mask[row] != 0.
+ * @param {number} handle
+ * @param {number} col
+ * @param {Uint8Array} mask
+ * @returns {any}
+ */
+export function store_filtered_value_counts(handle, col, mask) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(mask, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.store_filtered_value_counts(retptr, handle, col, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Compute histogram for a numeric column in a loaded store.
  * @param {number} handle
  * @param {number} col
