@@ -176,6 +176,33 @@ h1 {
   height: 100%; /* fill parent */
 }
 
+/* --- Streaming progress bar --- */
+
+.pt-progress-bar {
+  height: 2px;
+  flex-shrink: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 400ms ease;
+}
+
+.pt-progress-bar-fill {
+  height: 100%;
+  width: 30%;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: pt-progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes pt-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(433%); }
+}
+
+.pt-progress-bar-done {
+  opacity: 0;
+}
+
 /* --- Header --- */
 
 .pt-header {

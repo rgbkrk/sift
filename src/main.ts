@@ -202,6 +202,7 @@ async function loadLocalArrow(dataset: DatasetEntry, tableRoot: HTMLElement) {
     appendBatch(batch)
     currentEngine.onBatchAppended()
   }
+  currentEngine.setStreamingDone()
 }
 
 async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement) {
@@ -248,6 +249,7 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
     updateWasmSummaries(mod, handle, tableData, columns)
     currentEngine!.onBatchAppended()
   }
+  currentEngine!.setStreamingDone()
 }
 
 /** Compute summaries from the WASM store and update tableData. */

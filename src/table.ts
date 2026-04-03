@@ -95,6 +95,8 @@ export type TableEngineOptions = {
 
 export type TableEngine = {
   onBatchAppended(): void
+  /** Signal that all batches have been loaded and streaming is complete. */
+  setStreamingDone(): void
   destroy(): void
   setFilter(colIndex: number, filter: ColumnFilter): void
   clearFilter(colIndex: number): void
@@ -349,6 +351,13 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   container.setAttribute('role', 'grid')
   container.setAttribute('aria-label', 'Data table')
 
+  // Streaming progress bar — indeterminate bar at the top of the table
+  let streaming = true
+  const progressBar = document.createElement('div')
+  progressBar.className = 'pt-progress-bar'
+  progressBar.innerHTML = '<div class="pt-progress-bar-fill"></div>'
+  container.appendChild(progressBar)
+
   // Header — lives inside the scroll content so it scrolls
   // horizontally with the data. position: sticky keeps it at top.
   const headerEl = document.createElement('div')
@@ -511,10 +520,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   const statFrame = makeStatSpan('pt-stat-frame')
 
   function updateRowCountDisplay() {
+    const suffix = streaming ? ' …' : ''
     if (hasActiveFilters()) {
-      statRows.textContent = `${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`
+      statRows.textContent = `${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows${suffix}`
     } else {
-      statRows.textContent = `${rowCount.toLocaleString()} rows`
+      statRows.textContent = `${rowCount.toLocaleString()} rows${suffix}`
     }
   }
   updateRowCountDisplay()
@@ -998,6 +1008,15 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     scheduleRender()
   }
 
+  function setStreamingDone() {
+    if (!streaming) return
+    streaming = false
+    progressBar.classList.add('pt-progress-bar-done')
+    updateRowCountDisplay()
+    // Remove the progress bar from DOM after fade-out transition
+    progressBar.addEventListener('transitionend', () => progressBar.remove(), { once: true })
+  }
+
   // --- Boot ---
 
   document.fonts.ready.then(() => {
@@ -1431,7 +1450,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   }
 
   return {
-    onBatchAppended, destroy,
+    onBatchAppended, setStreamingDone, destroy,
     setFilter, clearFilter, clearAllFilters,
     getSort, setSort: setSortByName, getFilters, getState,
   }

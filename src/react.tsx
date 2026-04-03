@@ -220,6 +220,7 @@ export function PretextTable({
           appendBatch(batch)
           engineRef.current!.onBatchAppended()
         }
+        engineRef.current!.setStreamingDone()
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : String(err)
