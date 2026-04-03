@@ -18,6 +18,7 @@ export type ColumnMenuState = {
   colType: ColumnType
   isPinned: boolean
   isCast: boolean
+  isStreaming: boolean
   sortDirection: 'asc' | 'desc' | null
   x: number
   y: number
@@ -55,7 +56,7 @@ export function ColumnContextMenu({ state, onAction, onClose }: Props) {
 
   if (!state) return null
 
-  const { colIndex, colName, colType, isPinned, isCast, sortDirection, x, y } = state
+  const { colIndex, colName, colType, isPinned, isCast, isStreaming, sortDirection, x, y } = state
 
   function act(action: ColumnAction) {
     onAction(colIndex, action)
@@ -94,26 +95,34 @@ export function ColumnContextMenu({ state, onAction, onClose }: Props) {
 
       <div className="h-px bg-[var(--rule)] -mx-1 my-1" />
 
-      <div className="px-2 py-1 text-xs text-[var(--muted)]">Treat as…</div>
-      <MenuItem onClick={() => act({ kind: 'cast', targetType: 'categorical' })}>
-        Text {colType === 'categorical' && <Check />}
-      </MenuItem>
-      <MenuItem onClick={() => act({ kind: 'cast', targetType: 'numeric' })}>
-        Number {colType === 'numeric' && <Check />}
-      </MenuItem>
-      <MenuItem onClick={() => act({ kind: 'cast', targetType: 'timestamp' })}>
-        Date {colType === 'timestamp' && <Check />}
-      </MenuItem>
-      <MenuItem onClick={() => act({ kind: 'cast', targetType: 'boolean' })}>
-        Boolean {colType === 'boolean' && <Check />}
-      </MenuItem>
-
-      {isCast && (
+      {isStreaming ? (
+        <div className="px-2 py-1.5 text-xs text-[var(--muted)] italic">
+          Some operations hidden while loading
+        </div>
+      ) : (
         <>
-          <div className="h-px bg-[var(--rule)] -mx-1 my-1" />
-          <MenuItem onClick={() => act({ kind: 'undo-cast' })}>
-            Revert to original type
+          <div className="px-2 py-1 text-xs text-[var(--muted)]">Treat as…</div>
+          <MenuItem onClick={() => act({ kind: 'cast', targetType: 'categorical' })}>
+            Text {colType === 'categorical' && <Check />}
           </MenuItem>
+          <MenuItem onClick={() => act({ kind: 'cast', targetType: 'numeric' })}>
+            Number {colType === 'numeric' && <Check />}
+          </MenuItem>
+          <MenuItem onClick={() => act({ kind: 'cast', targetType: 'timestamp' })}>
+            Date {colType === 'timestamp' && <Check />}
+          </MenuItem>
+          <MenuItem onClick={() => act({ kind: 'cast', targetType: 'boolean' })}>
+            Boolean {colType === 'boolean' && <Check />}
+          </MenuItem>
+
+          {isCast && (
+            <>
+              <div className="h-px bg-[var(--rule)] -mx-1 my-1" />
+              <MenuItem onClick={() => act({ kind: 'undo-cast' })}>
+                Revert to original type
+              </MenuItem>
+            </>
+          )}
         </>
       )}
     </div>

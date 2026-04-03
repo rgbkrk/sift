@@ -476,6 +476,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
           colType: columns[c].columnType,
           isPinned: pinnedColumns.has(c),
           isCast: data.isColumnCast ? data.isColumnCast(c) : false,
+          isStreaming: streaming,
           sortDirection: sortState?.col === c ? sortState.dir : null,
           x, y,
         },
@@ -1500,6 +1501,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         break
 
       case 'cast':
+        if (streaming) break // Cast blocked during streaming — schema mismatch would crash WASM
         if (data.castColumn) {
           try {
             data.castColumn(colIndex, action.targetType)
@@ -1531,6 +1533,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         break
 
       case 'undo-cast':
+        if (streaming) break
         if (data.undoCastColumn) {
           const restoredType = data.undoCastColumn(colIndex)
           // Update the column metadata
