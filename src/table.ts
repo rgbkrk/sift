@@ -430,14 +430,17 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
     th.appendChild(topRow)
 
-    const typeIcon = document.createElement('span')
-    typeIcon.className = 'pt-type-icon'
-    typeIcon.textContent = columns[c].columnType === 'numeric' ? '#'
-      : columns[c].columnType === 'boolean' ? '◉'
-      : columns[c].columnType === 'timestamp' ? '◷'
-      : 'Aa'
-    typeIcon.title = columns[c].columnType
-    th.appendChild(typeIcon)
+    // Type icon — hide for index columns (empty label = hidden index)
+    if (columns[c].label) {
+      const typeIcon = document.createElement('span')
+      typeIcon.className = 'pt-type-icon'
+      typeIcon.textContent = columns[c].columnType === 'numeric' ? '#'
+        : columns[c].columnType === 'boolean' ? '◉'
+        : columns[c].columnType === 'timestamp' ? '◷'
+        : 'Aa'
+      typeIcon.title = columns[c].columnType
+      th.appendChild(typeIcon)
+    }
 
     const summaryEl = document.createElement('div')
     summaryEl.className = 'pt-th-summary'
@@ -1450,7 +1453,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
           const fmt = (v: number) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
           return `${fmt(f.min)} – ${fmt(f.max)}`
         }
-        return `${f.min.toLocaleString(undefined, { maximumFractionDigits: 1 })} – ${f.max.toLocaleString(undefined, { maximumFractionDigits: 1 })}`
+        const minStr = f.min.toLocaleString(undefined, { maximumFractionDigits: 1 })
+        const maxStr = f.max.toLocaleString(undefined, { maximumFractionDigits: 1 })
+        return minStr === maxStr ? minStr : `${minStr} – ${maxStr}`
       }
       case 'set': {
         const vals = [...f.values]
@@ -1481,6 +1486,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     // Numeric/timestamp — check if range narrowed
     if ((full.kind === 'numeric' && filtered.kind === 'numeric') ||
         (full.kind === 'timestamp' && filtered.kind === 'timestamp')) {
+      // Binary numeric columns show selection via the ratio bar — no need for "values hidden"
+      if (full.kind === 'numeric' && (full as any).uniqueCount === 2) return null
       if (full.min !== filtered.min || full.max !== filtered.max) {
         return 'values hidden'
       }

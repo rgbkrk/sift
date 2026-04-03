@@ -238,8 +238,9 @@ function LowCardinalityNumericBars({ summary, activeFilter, onFilter }: {
 
 // --- Numeric histogram ---
 
-function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter }: {
+function NumericHistogram({ summary, unfilteredSummary, width, visibleBins, activeFilter, onFilter }: {
   summary: NumericColumnSummary
+  unfilteredSummary?: NumericColumnSummary
   width: number
   visibleBins?: number[]
   activeFilter?: RangeFilter | null
@@ -257,8 +258,10 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
   }
 
   // Binary numeric (exactly 2 unique values like 0/1): show as ratio bar
-  if (summary.uniqueCount !== undefined && summary.uniqueCount === 2) {
-    return <BinaryNumericRatioBar summary={summary} activeFilter={activeFilter} onFilter={onFilter} />
+  // Use unfiltered summary so the bar always shows both values, even when one is filtered out
+  const sourceSummary = unfilteredSummary ?? summary
+  if (sourceSummary.uniqueCount !== undefined && sourceSummary.uniqueCount === 2) {
+    return <BinaryNumericRatioBar summary={sourceSummary} activeFilter={activeFilter} onFilter={onFilter} />
   }
 
   // Low-cardinality: show as categorical bars instead of histogram
@@ -310,9 +313,12 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
         {hasOverlay && <VisibleOverlay bins={summary.bins} visibleBins={visibleBins} width={width} />}
         <BrushLayer width={width} min={summary.min} max={summary.max} activeFilter={activeFilter} onFilter={onFilter} />
       </div>
-      <span className="pt-th-range">
-        {formatNum(summary.min)} – {formatNum(summary.max)}
-      </span>
+      {/* Hide range for binary-like columns where the ratio bar says it all */}
+      {!(Number.isInteger(summary.min) && Number.isInteger(summary.max) && summary.max - summary.min <= 1) && (
+        <span className="pt-th-range">
+          {formatNum(summary.min)} – {formatNum(summary.max)}
+        </span>
+      )}
     </div>
   )
 }
@@ -702,9 +708,11 @@ function ColumnSummaryChart({ summary, unfilteredSummary, width, visibleBins, ac
   onFilter: FilterCallback
 }) {
   switch (summary.kind) {
-    case 'numeric':
-      return <NumericHistogram summary={summary} width={width} visibleBins={visibleBins}
+    case 'numeric': {
+      const unfilteredNumeric = unfilteredSummary?.kind === 'numeric' ? unfilteredSummary : undefined
+      return <NumericHistogram summary={summary} unfilteredSummary={unfilteredNumeric} width={width} visibleBins={visibleBins}
         activeFilter={activeFilter?.kind === 'range' ? activeFilter : null} onFilter={onFilter} />
+    }
     case 'timestamp':
       return <TimestampHistogram summary={summary} width={width} visibleBins={visibleBins}
         activeFilter={activeFilter?.kind === 'range' ? activeFilter : null} onFilter={onFilter} />
