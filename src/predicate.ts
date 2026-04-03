@@ -10,6 +10,7 @@ type PredicateModule = {
   load_ipc(ipc_bytes: Uint8Array): number
   load_parquet(parquet_bytes: Uint8Array): number
   parquet_metadata(parquet_bytes: Uint8Array): Uint32Array
+  parquet_schema_metadata(parquet_bytes: Uint8Array): Record<string, string>
   load_parquet_row_group(parquet_bytes: Uint8Array, row_group: number, handle: number): number
   cast_column(handle: number, col: number, target_type: string): void
   free(handle: number): void

@@ -109,6 +109,12 @@ export function num_rows(handle: number): number;
 export function parquet_metadata(parquet_bytes: Uint8Array): Uint32Array;
 
 /**
+ * Extract key-value metadata from a Parquet file's schema.
+ * Returns a JSON object with metadata keys like "pandas", "huggingface", etc.
+ */
+export function parquet_schema_metadata(parquet_bytes: Uint8Array): any;
+
+/**
  * Count boolean values in a column: returns [true_count, false_count, null_count].
  */
 export function store_bool_counts(handle: number, col: number): Uint32Array;
@@ -168,6 +174,7 @@ export interface InitOutput {
     readonly num_cols: (a: number, b: number) => void;
     readonly num_rows: (a: number, b: number) => void;
     readonly parquet_metadata: (a: number, b: number, c: number) => void;
+    readonly parquet_schema_metadata: (a: number, b: number, c: number) => void;
     readonly store_bool_counts: (a: number, b: number, c: number) => void;
     readonly store_histogram: (a: number, b: number, c: number, d: number) => void;
     readonly store_sort_indices: (a: number, b: number, c: number, d: number) => void;

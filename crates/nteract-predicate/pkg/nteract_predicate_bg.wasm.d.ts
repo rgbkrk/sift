@@ -16,6 +16,7 @@ export const load_parquet_row_group: (a: number, b: number, c: number, d: number
 export const num_cols: (a: number, b: number) => void;
 export const num_rows: (a: number, b: number) => void;
 export const parquet_metadata: (a: number, b: number, c: number) => void;
+export const parquet_schema_metadata: (a: number, b: number, c: number) => void;
 export const store_bool_counts: (a: number, b: number, c: number) => void;
 export const store_histogram: (a: number, b: number, c: number, d: number) => void;
 export const store_sort_indices: (a: number, b: number, c: number, d: number) => void;

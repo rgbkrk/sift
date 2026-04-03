@@ -431,6 +431,30 @@ export function parquet_metadata(parquet_bytes) {
 }
 
 /**
+ * Extract key-value metadata from a Parquet file's schema.
+ * Returns a JSON object with metadata keys like "pandas", "huggingface", etc.
+ * @param {Uint8Array} parquet_bytes
+ * @returns {any}
+ */
+export function parquet_schema_metadata(parquet_bytes) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passArray8ToWasm0(parquet_bytes, wasm.__wbindgen_export);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.parquet_schema_metadata(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Count boolean values in a column: returns [true_count, false_count, null_count].
  * @param {number} handle
  * @param {number} col
@@ -594,6 +618,10 @@ export function value_counts(ipc_bytes, column_index) {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
+        __wbg_Error_2e59b1b37a9a34c3: function(arg0, arg1) {
+            const ret = Error(getStringFromWasm0(arg0, arg1));
+            return addHeapObject(ret);
+        },
         __wbg_String_8564e559799eccda: function(arg0, arg1) {
             const ret = String(getObject(arg1));
             const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_export, wasm.__wbindgen_export2);
@@ -608,6 +636,10 @@ function __wbg_get_imports() {
             getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
+        __wbg___wbindgen_is_string_b29b5c5a8065ba1a: function(arg0) {
+            const ret = typeof(getObject(arg0)) === 'string';
+            return ret;
+        },
         __wbg___wbindgen_throw_81fc77679af83bc6: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
@@ -615,8 +647,16 @@ function __wbg_get_imports() {
             const ret = new Object();
             return addHeapObject(ret);
         },
+        __wbg_new_99cabae501c0a8a0: function() {
+            const ret = new Map();
+            return addHeapObject(ret);
+        },
         __wbg_new_f3c9df4f38f3f798: function() {
             const ret = new Array();
+            return addHeapObject(ret);
+        },
+        __wbg_set_08463b1df38a7e29: function(arg0, arg1, arg2) {
+            const ret = getObject(arg0).set(getObject(arg1), getObject(arg2));
             return addHeapObject(ret);
         },
         __wbg_set_6be42768c690e380: function(arg0, arg1, arg2) {

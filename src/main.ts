@@ -220,15 +220,56 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
   const meta = mod.parquet_metadata(parquetBytes)
   const numRowGroups = meta[0]
 
+  // Read schema metadata for pandas index_columns and HuggingFace feature types
+  let schemaMetadata: Record<string, string> = {}
+  try {
+    schemaMetadata = mod.parquet_schema_metadata(parquetBytes) as Record<string, string>
+  } catch { /* metadata extraction is best-effort */ }
+
+  // Parse pandas index columns
+  const pandasIndexCols = new Set<string>()
+  if (schemaMetadata.pandas) {
+    try {
+      const pandas = JSON.parse(schemaMetadata.pandas)
+      for (const ic of pandas.index_columns ?? []) {
+        if (typeof ic === 'string') pandasIndexCols.add(ic)
+        // Range index descriptors don't map to a named column
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Parse HuggingFace feature metadata
+  const hfFeatures: Record<string, { _type: string; names?: string[] }> = {}
+  if (schemaMetadata.huggingface) {
+    try {
+      const hf = JSON.parse(schemaMetadata.huggingface)
+      Object.assign(hfFeatures, hf?.info?.features ?? {})
+    } catch { /* ignore parse errors */ }
+  }
+
   // Load first row group → mount table immediately
   const handle = mod.load_parquet_row_group(parquetBytes, 0, 0)
 
   const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
   tableData.prefetchViewport = prefetchViewport
-  tableData.recomputeSummaries = () => updateWasmSummaries(mod, handle, tableData, columns)
+  tableData.recomputeSummaries = () => updateWasmSummaries(mod, handle, tableData, columns, pandasIndexCols)
+
+  // Apply metadata: mark pandas index columns, log HF features
+  for (const col of columns) {
+    if (pandasIndexCols.has(col.key)) {
+      // Mark as index — will suppress histogram in summary
+      col.sortable = false // Index columns shouldn't be sortable by users
+    }
+    const hfFeature = hfFeatures[col.key]
+    if (hfFeature?._type === 'ClassLabel' && col.columnType !== 'categorical') {
+      // HF says this is a classification label — treat as categorical
+      col.columnType = 'categorical'
+      col.numeric = false
+    }
+  }
 
   // Compute initial summaries from first row group
-  updateWasmSummaries(mod, handle, tableData, columns)
+  updateWasmSummaries(mod, handle, tableData, columns, pandasIndexCols)
 
   tableRoot.innerHTML = ''
   currentEngine = createTable(tableRoot, tableData)
@@ -251,6 +292,7 @@ function updateWasmSummaries(
   handle: number,
   tableData: TableData,
   columns: Column[],
+  pandasIndexCols?: Set<string>,
 ) {
   const numRows = mod.num_rows(handle)
   const BIN_COUNT = 25
@@ -302,11 +344,12 @@ function updateWasmSummaries(
           if (nonZeroBins <= 10) {
             summary.uniqueCount = nonZeroBins
           }
-          // Detect index/ID columns: uniform distribution + name pattern or high fill
+          // Detect index/ID columns: pandas metadata, uniform distribution, or name pattern
+          const isPandasIndex = pandasIndexCols?.has(col.key) ?? false
           const isUniform = nonZeroBins === bins.length &&
             bins.every(b => b.count > 0 && b.count < numRows / (BIN_COUNT * 0.3))
           const isIndexName = /^(unnamed[: _]?\d*|index|_?id|rowid|row_?id|row_?num)$/i.test(col.key)
-          if (isUniform || isIndexName) {
+          if (isPandasIndex || isUniform || isIndexName) {
             ;(summary as any).isIndex = true
           }
         }

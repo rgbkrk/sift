@@ -560,6 +560,22 @@ pub fn parquet_metadata(parquet_bytes: &[u8]) -> Result<Vec<u32>, JsValue> {
     Ok(vec![num_row_groups, total_rows])
 }
 
+/// Extract key-value metadata from a Parquet file's schema.
+/// Returns a JSON object with metadata keys like "pandas", "huggingface", etc.
+#[wasm_bindgen]
+pub fn parquet_schema_metadata(parquet_bytes: &[u8]) -> Result<JsValue, JsValue> {
+    let bytes = bytes::Bytes::copy_from_slice(parquet_bytes);
+    let builder = ParquetRecordBatchReaderBuilder::try_new(bytes)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let schema = builder.schema();
+    let metadata = schema.metadata();
+    let map: HashMap<String, String> = metadata.iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    serde_wasm_bindgen::to_value(&map)
+        .map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
 /// Load a single Parquet row group into a new or existing store.
 /// If handle is 0, creates a new store and returns the handle.
 /// If handle is non-zero, appends the row group to the existing store.
