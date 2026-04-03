@@ -1035,6 +1035,152 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   window.addEventListener('resize', scheduleRender)
 
+  // --- Mobile tap-row detail sheet ---
+
+  let activeDetailSheet: HTMLDivElement | null = null
+
+  function typeIconChar(ct: ColumnType): string {
+    return ct === 'numeric' ? '#' : ct === 'boolean' ? '◉' : ct === 'timestamp' ? '◷' : 'Aa'
+  }
+
+  function dismissDetailSheet() {
+    if (!activeDetailSheet) return
+    const sheet = activeDetailSheet
+    const backdrop = sheet.previousElementSibling as HTMLElement | null
+    sheet.classList.remove('pt-detail-sheet-open')
+    sheet.addEventListener('transitionend', () => {
+      sheet.remove()
+      backdrop?.remove()
+    }, { once: true })
+    activeDetailSheet = null
+  }
+
+  function showDetailSheet(viewRow: number) {
+    // Dismiss any existing sheet first
+    dismissDetailSheet()
+
+    const dataRow = viewIndices[viewRow]
+
+    // Backdrop
+    const backdrop = document.createElement('div')
+    backdrop.className = 'pt-detail-backdrop'
+    backdrop.addEventListener('click', dismissDetailSheet)
+
+    // Sheet
+    const sheet = document.createElement('div')
+    sheet.className = 'pt-detail-sheet'
+
+    // Header with row number and close button
+    const header = document.createElement('div')
+    header.className = 'pt-detail-header'
+
+    const title = document.createElement('span')
+    title.className = 'pt-detail-title'
+    title.textContent = `Row ${dataRow + 1}`
+
+    const closeBtn = document.createElement('button')
+    closeBtn.className = 'pt-detail-close'
+    closeBtn.textContent = '×'
+    closeBtn.addEventListener('click', dismissDetailSheet)
+
+    header.appendChild(title)
+    header.appendChild(closeBtn)
+    sheet.appendChild(header)
+
+    // Column-value list
+    const list = document.createElement('div')
+    list.className = 'pt-detail-list'
+
+    for (let c = 0; c < columns.length; c++) {
+      const row = document.createElement('div')
+      row.className = 'pt-detail-row'
+
+      const nameEl = document.createElement('div')
+      nameEl.className = 'pt-detail-col-name'
+
+      const icon = document.createElement('span')
+      icon.className = 'pt-detail-type-icon'
+      icon.textContent = typeIconChar(columns[c].columnType)
+
+      const label = document.createElement('span')
+      label.textContent = columns[c].label
+
+      nameEl.appendChild(icon)
+      nameEl.appendChild(label)
+
+      const valueEl = document.createElement('div')
+      valueEl.className = 'pt-detail-col-value'
+
+      const raw = data.getCellRaw(dataRow, c)
+      if (raw == null) {
+        const badge = document.createElement('span')
+        badge.className = 'pt-badge pt-badge-null'
+        badge.textContent = 'null'
+        valueEl.appendChild(badge)
+      } else if (columns[c].columnType === 'boolean') {
+        const badge = document.createElement('span')
+        badge.className = raw ? 'pt-badge pt-badge-true' : 'pt-badge pt-badge-false'
+        badge.textContent = raw ? 'Yes' : 'No'
+        valueEl.appendChild(badge)
+      } else {
+        valueEl.textContent = data.getCell(dataRow, c)
+      }
+
+      row.appendChild(nameEl)
+      row.appendChild(valueEl)
+      list.appendChild(row)
+    }
+
+    sheet.appendChild(list)
+
+    document.body.appendChild(backdrop)
+    document.body.appendChild(sheet)
+    activeDetailSheet = sheet
+
+    // Trigger slide-up animation on next frame
+    requestAnimationFrame(() => {
+      sheet.classList.add('pt-detail-sheet-open')
+    })
+  }
+
+  // Tap detection on rows: click on narrow viewports opens detail sheet.
+  // We use pointerdown/pointerup to distinguish taps from scrolls/long-presses.
+  let tapStartTime = 0
+  let tapStartX = 0
+  let tapStartY = 0
+  const TAP_MAX_DURATION = 300
+  const TAP_MAX_DISTANCE = 10
+
+  viewport.addEventListener('pointerdown', (e) => {
+    if (window.innerWidth >= 768) return
+    if (e.pointerType !== 'touch') return
+    tapStartTime = e.timeStamp
+    tapStartX = e.clientX
+    tapStartY = e.clientY
+  })
+
+  viewport.addEventListener('pointerup', (e) => {
+    if (window.innerWidth >= 768) return
+    if (e.pointerType !== 'touch') return
+
+    const duration = e.timeStamp - tapStartTime
+    const dx = Math.abs(e.clientX - tapStartX)
+    const dy = Math.abs(e.clientY - tapStartY)
+    if (duration > TAP_MAX_DURATION || dx > TAP_MAX_DISTANCE || dy > TAP_MAX_DISTANCE) return
+
+    // Find which pool row was tapped
+    const target = e.target as HTMLElement
+    const rowEl = target.closest('.pt-row') as HTMLDivElement | null
+    if (!rowEl) return
+
+    for (const pr of pool) {
+      if (pr.el === rowEl && pr.assignedRow !== -1) {
+        showDetailSheet(pr.assignedRow)
+        break
+      }
+    }
+  })
+
   // --- Column resize ---
 
   function onResizeStart(e: PointerEvent, colIndex: number) {
@@ -1249,6 +1395,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       unmountColumnSummary(el)
     }
     unmountColumnMenu()
+
+    // Dismiss detail sheet if open
+    dismissDetailSheet()
 
     // Clear DOM
     container.innerHTML = ''
