@@ -427,13 +427,26 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     th.appendChild(summaryEl)
     summaryContainers.push(summaryEl)
 
-    // Keyboard shortcut: 'p' to toggle pin
+    // Keyboard shortcuts on column headers
     th.setAttribute('tabindex', '0')
     th.addEventListener('keydown', (e) => {
       if (e.key === 'p' || e.key === 'P') {
         e.preventDefault()
         const action: ColumnAction = pinnedColumns.has(c) ? { kind: 'unpin' } : { kind: 'pin' }
         handleColumnAction(c, action)
+      } else if (e.key === 'Enter' && columns[c].sortable) {
+        e.preventDefault()
+        onSortClick(c)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        const ths = Array.from(headerRowEl.children) as HTMLDivElement[]
+        const curVi = ths.indexOf(th)
+        if (curVi < ths.length - 1) (ths[curVi + 1] as HTMLElement).focus()
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        const ths = Array.from(headerRowEl.children) as HTMLDivElement[]
+        const curVi = ths.indexOf(th)
+        if (curVi > 0) (ths[curVi - 1] as HTMLElement).focus()
       }
     })
 

@@ -148,4 +148,37 @@ test.describe('Column Pinning', () => {
     const unpinnedPos = await nameTh.evaluate(el => el.style.position)
     expect(unpinnedPos).not.toBe('sticky')
   })
+
+  test('arrow keys navigate between column headers', async ({ page }) => {
+    // Focus the first column header
+    const firstTh = page.locator('.pt-th').first()
+    await firstTh.focus()
+
+    // Press ArrowRight to move to next column
+    await firstTh.press('ArrowRight')
+    const secondTh = page.locator('.pt-th').nth(1)
+    await expect(secondTh).toBeFocused()
+
+    // Press ArrowRight again
+    await secondTh.press('ArrowRight')
+    const thirdTh = page.locator('.pt-th').nth(2)
+    await expect(thirdTh).toBeFocused()
+
+    // Press ArrowLeft to go back
+    await thirdTh.press('ArrowLeft')
+    await expect(secondTh).toBeFocused()
+  })
+
+  test('Enter key triggers sort on focused column', async ({ page }) => {
+    const scoreTh = page.locator('.pt-th').filter({ hasText: 'Score' })
+    await scoreTh.focus()
+    await scoreTh.press('Enter')
+
+    // Sort arrow should appear
+    await expect(scoreTh.locator('.pt-sort-arrow')).toContainText('↑', { timeout: 2000 })
+
+    // Press Enter again for descending
+    await scoreTh.press('Enter')
+    await expect(scoreTh.locator('.pt-sort-arrow')).toContainText('↓', { timeout: 2000 })
+  })
 })
