@@ -52,14 +52,9 @@ export type PretextTableProps = {
   style?: React.CSSProperties
 }
 
-// --- Helpers ---
+import { autoWidth } from './auto-width'
 
-function autoWidth(name: string, colType: ColumnType): number {
-  if (colType === 'boolean') return 100
-  if (colType === 'timestamp') return 140
-  if (colType === 'numeric') return 120
-  return Math.max(100, Math.min(250, name.length * 12 + 40))
-}
+// --- Helpers ---
 
 function buildTableState(
   schema: Schema,

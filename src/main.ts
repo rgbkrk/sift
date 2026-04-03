@@ -3,7 +3,6 @@ import type { RecordBatch } from 'apache-arrow'
 import {
   createTable,
   type Column,
-  type ColumnType,
   type TableData,
   type TableEngine,
 } from './table'
@@ -20,6 +19,7 @@ import { DATASETS, type DatasetEntry } from './datasets'
 import { resolveHuggingFaceParquetUrl } from './parquet-loader'
 import { getModuleSync } from './predicate'
 import { createWasmTableData } from './wasm-table-data'
+import { autoWidth } from './auto-width'
 import './style.css'
 
 // --- Column definitions for the generated dataset ---
@@ -37,15 +37,6 @@ const generatedColumnOverrides: Record<string, Partial<Column>> = {
   verified:   { label: 'Verified', width: 100, sortable: true },
   joined:     { label: 'Joined', width: 120, sortable: true },
   chaos:      { label: 'Chaos', width: 130, sortable: true },
-}
-
-/** Guess a reasonable default width for a column based on type and name length */
-function autoWidth(name: string, colType: ColumnType): number {
-  if (colType === 'boolean') return 100
-  if (colType === 'timestamp') return 140
-  if (colType === 'numeric') return 120
-  // Categorical: scale with name length, clamped
-  return Math.max(100, Math.min(250, name.length * 12 + 40))
 }
 
 // --- State ---

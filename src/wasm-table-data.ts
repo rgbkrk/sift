@@ -9,6 +9,7 @@ import { tableFromIPC } from 'apache-arrow'
 import { getModuleSync } from './predicate'
 import type { TableData, Column, ColumnType } from './table'
 import { formatCell } from './accumulators'
+import { autoWidth } from './auto-width'
 
 /** Map WASM col_type strings to our ColumnType */
 function mapColType(wasmType: string): ColumnType {
@@ -18,14 +19,6 @@ function mapColType(wasmType: string): ColumnType {
     case 'timestamp': return 'timestamp'
     default: return 'categorical'
   }
-}
-
-/** Guess a reasonable default width for a column */
-function autoWidth(name: string, colType: ColumnType): number {
-  if (colType === 'boolean') return 100
-  if (colType === 'timestamp') return 140
-  if (colType === 'numeric') return 120
-  return Math.max(100, Math.min(250, name.length * 12 + 40))
 }
 
 export type WasmTableHandle = {
