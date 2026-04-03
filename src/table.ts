@@ -140,7 +140,8 @@ const LINE_HEIGHT = 20
 const CELL_PAD_H = 24 // 12px each side
 const CELL_PAD_V = 16 // 8px top + 8px bottom
 const MIN_COL_WIDTH = 60
-const OVERSCAN = 10 // extra rows above/below viewport
+const OVERSCAN = 20 // extra rows above/below viewport
+const OVERSCAN_VELOCITY = 40 // additional rows in scroll direction when scrolling fast
 
 // --- Table Engine ---
 
@@ -959,10 +960,21 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const scrollTop = Math.max(0, viewport.scrollTop - headerH)
     const viewportH = viewport.clientHeight
 
-    const first = Math.max(0, rowAtOffset(scrollTop) - OVERSCAN)
-    const lastY = scrollTop + viewportH
-    let last = rowAtOffset(lastY) + OVERSCAN
-    if (last >= filteredCount) last = filteredCount - 1
+    // True visible range (no overscan) — used for header overlays
+    const visFirst = rowAtOffset(scrollTop)
+    const visLast = Math.min(rowAtOffset(scrollTop + viewportH), filteredCount - 1)
+
+    // Scroll velocity: extra overscan in the direction of travel
+    const scrollDelta = scrollTop - lastScrollTop
+    const scrollingDown = scrollDelta > 0
+    const scrollingFast = Math.abs(scrollDelta) > 100
+    const extraOverscan = scrollingFast ? OVERSCAN_VELOCITY : 0
+
+    const overscanBefore = OVERSCAN + (scrollingDown ? 0 : extraOverscan)
+    const overscanAfter = OVERSCAN + (scrollingDown ? extraOverscan : 0)
+
+    const first = Math.max(0, visFirst - overscanBefore)
+    let last = Math.min(visLast + overscanAfter, filteredCount - 1)
 
     // Prefetch visible rows in batch (WASM viewport optimization)
     if (data.prefetchViewport) {
@@ -1055,10 +1067,10 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       }
     }
 
-    if (first !== lastVisFirst || last !== lastVisLast) {
-      lastVisFirst = first
-      lastVisLast = last
-      updateVisibleOverlays(first, Math.min(last, rowCount - 1))
+    if (visFirst !== lastVisFirst || visLast !== lastVisLast) {
+      lastVisFirst = visFirst
+      lastVisLast = visLast
+      updateVisibleOverlays(visFirst, visLast)
     }
 
     lastScrollTop = scrollTop
