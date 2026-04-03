@@ -306,6 +306,8 @@ function CategoryPopoverContent({ allCategories, activeSet, onFilter }: {
 
 // --- Categorical bars (click to filter) ---
 
+const HIGH_CARDINALITY_THRESHOLD = 50
+
 function CategoricalBars({ summary, unfilteredAllCategories, activeFilter, onFilter }: {
   summary: CategoricalColumnSummary
   unfilteredAllCategories?: CategoryEntry[]
@@ -313,6 +315,35 @@ function CategoricalBars({ summary, unfilteredAllCategories, activeFilter, onFil
   onFilter: FilterCallback
 }) {
   const [popoverOpen, setPopoverOpen] = useState(false)
+
+  const activeSet = activeFilter?.kind === 'set' ? activeFilter.values : null
+
+  // High-cardinality compact display
+  if (summary.uniqueCount >= HIGH_CARDINALITY_THRESHOLD) {
+    const topPct = summary.topCategories.length > 0 ? summary.topCategories[0].pct : 0
+
+    return (
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>
+          <div className="pt-cat-compact pt-cat-clickable">
+            <div className="pt-cat-compact-bar-track">
+              <div className="pt-cat-compact-bar-fill" style={{ width: `${topPct}%` }} />
+            </div>
+            <span className="pt-cat-compact-label">
+              {summary.uniqueCount.toLocaleString()} unique {activeSet ? '▾' : '▾'}
+            </span>
+          </div>
+        </PopoverTrigger>
+        <PopoverContent side="bottom" align="start">
+          <CategoryPopoverContent
+            allCategories={unfilteredAllCategories ?? summary.allCategories}
+            activeSet={activeSet}
+            onFilter={onFilter}
+          />
+        </PopoverContent>
+      </Popover>
+    )
+  }
 
   const items = [
     ...summary.topCategories.map(c => ({ label: c.label, count: c.count, pct: c.pct, isOthers: false })),
@@ -325,8 +356,6 @@ function CategoricalBars({ summary, unfilteredAllCategories, activeFilter, onFil
       isOthers: true,
     })
   }
-
-  const activeSet = activeFilter?.kind === 'set' ? activeFilter.values : null
 
   return (
     <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>

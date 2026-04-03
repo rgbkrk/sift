@@ -371,6 +371,40 @@ h1 {
   opacity: 0.8 !important;
 }
 
+/* --- High-cardinality compact display --- */
+
+.pt-cat-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 2px 0;
+  cursor: pointer;
+  transition: opacity 100ms ease;
+}
+
+.pt-cat-compact-bar-track {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pt-cat-compact-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  min-width: 2px;
+  opacity: 0.6;
+}
+
+.pt-cat-compact-label {
+  font: 400 10px/1.2 var(--font);
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
 /* --- Category filter popover --- */
 
 .pt-cat-popover {
