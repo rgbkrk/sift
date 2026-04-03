@@ -139,7 +139,7 @@ async function loadDataset(datasetId: string) {
   }
 
   const tableRoot = document.getElementById('table-root')!
-  tableRoot.innerHTML = '<div class="pt-loading">Loading data…</div>'
+  renderLoadingSkeleton(tableRoot, 'Loading data…')
 
   try {
     if (dataset.source === 'local') {
