@@ -726,6 +726,7 @@ h1 {
   overflow: hidden;
   vertical-align: baseline;
   line-height: 1.2;
+  white-space: pre; /* preserve space characters */
   contain: layout style paint;
 }
 

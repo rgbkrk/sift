@@ -769,7 +769,14 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       switch (f.kind) {
         case 'range': {
           const colType = columns[c].columnType
-          if (colType === 'timestamp') {
+          if (f.min === f.max) {
+            // Single value — no range display needed
+            if (colType === 'timestamp') {
+              text += new Date(f.min).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
+            } else {
+              text += f.min.toLocaleString(undefined, { maximumFractionDigits: 1 })
+            }
+          } else if (colType === 'timestamp') {
             const fmt = (v: number) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
             text += `${fmt(f.min)} – ${fmt(f.max)}`
           } else {
