@@ -1,7 +1,7 @@
 import { createRoot, type Root } from 'react-dom/client'
-import { createPortal } from 'react-dom'
 import { useRef, useCallback, useState, useMemo, useEffect } from 'react'
 import { BarChart } from 'semiotic/ordinal'
+import { Popover, PopoverTrigger, PopoverContent } from './components/ui/popover'
 import type {
   NumericColumnSummary,
   CategoricalColumnSummary,
@@ -184,18 +184,15 @@ function VisibleOverlay({ bins, visibleBins, width }: {
 const POPOVER_ROW_HEIGHT = 30
 const POPOVER_MAX_VISIBLE = 8
 
-function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRef }: {
+function CategoryPopoverContent({ allCategories, activeSet, onFilter }: {
   allCategories: CategoryEntry[]
   activeSet: Set<string> | null
   onFilter: FilterCallback
-  onClose: () => void
-  anchorRef: React.RefObject<HTMLElement | null>
 }) {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [pos, setPos] = useState({ top: 0, left: 0 })
 
   // Pre-lowercase all labels once (avoids 89k toLowerCase() calls per keystroke)
   const lowercased = useMemo(
@@ -211,33 +208,7 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRe
 
   useEffect(() => {
     inputRef.current?.focus()
-    if (anchorRef.current) {
-      const rect = anchorRef.current.getBoundingClientRect()
-      setPos({ top: rect.bottom + 4, left: rect.left })
-    }
   }, [])
-
-  // Close on Escape
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose() }
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [onClose])
-
-  // Close on click outside
-  const popoverRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    // Delay to avoid catching the opening click
-    const timer = setTimeout(() => document.addEventListener('click', onClick, true), 0)
-    return () => { clearTimeout(timer); document.removeEventListener('click', onClick, true) }
-  }, [onClose])
 
   const filtered = useMemo(() => {
     if (!search) return allCategories
@@ -274,8 +245,8 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRe
   function selectAll() { onFilter(null) }
   function clearAll() { onFilter({ kind: 'set', values: new Set<string>() }) }
 
-  return createPortal(
-    <div ref={popoverRef} className="pt-cat-popover" style={{ position: 'fixed', top: pos.top, left: pos.left }}>
+  return (
+    <div className="pt-cat-popover">
       <input
         ref={inputRef}
         className="pt-cat-popover-search"
@@ -329,8 +300,7 @@ function CategoryPopover({ allCategories, activeSet, onFilter, onClose, anchorRe
       {filtered.length === 0 && (
         <div className="pt-cat-popover-empty">No matches</div>
       )}
-    </div>,
-    document.body,
+    </div>
   )
 }
 
@@ -343,7 +313,6 @@ function CategoricalBars({ summary, unfilteredAllCategories, activeFilter, onFil
   onFilter: FilterCallback
 }) {
   const [popoverOpen, setPopoverOpen] = useState(false)
-  const othersRef = useRef<HTMLDivElement>(null)
 
   const items = [
     ...summary.topCategories.map(c => ({ label: c.label, count: c.count, pct: c.pct, isOthers: false })),
@@ -360,48 +329,51 @@ function CategoricalBars({ summary, unfilteredAllCategories, activeFilter, onFil
   const activeSet = activeFilter?.kind === 'set' ? activeFilter.values : null
 
   return (
-    <div className="pt-cat-summary">
-      {items.map(item => {
-        const isActive = activeSet ? activeSet.has(item.label) : true
-        return (
-          <div
-            key={item.label}
-            ref={item.isOthers ? othersRef : undefined}
-            className={`pt-cat-row pt-cat-clickable`}
-            style={{ opacity: activeSet && !isActive && !item.isOthers ? 0.3 : 1 }}
-            onClick={item.isOthers
-              ? () => setPopoverOpen(!popoverOpen)
-              : () => {
-                if (activeSet?.has(item.label)) {
-                  const next = new Set(activeSet)
-                  next.delete(item.label)
-                  onFilter(next.size > 0 ? { kind: 'set', values: next } : null)
-                } else {
-                  const next = new Set(activeSet ?? [])
-                  next.add(item.label)
-                  onFilter({ kind: 'set', values: next })
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+      <div className="pt-cat-summary">
+        {items.map(item => {
+          const isActive = activeSet ? activeSet.has(item.label) : true
+          const row = (
+            <div
+              key={item.label}
+              className={`pt-cat-row pt-cat-clickable`}
+              style={{ opacity: activeSet && !isActive && !item.isOthers ? 0.3 : 1 }}
+              onClick={item.isOthers
+                ? undefined
+                : () => {
+                  if (activeSet?.has(item.label)) {
+                    const next = new Set(activeSet)
+                    next.delete(item.label)
+                    onFilter(next.size > 0 ? { kind: 'set', values: next } : null)
+                  } else {
+                    const next = new Set(activeSet ?? [])
+                    next.add(item.label)
+                    onFilter({ kind: 'set', values: next })
+                  }
                 }
               }
-            }
-          >
-            <div className="pt-cat-bar-track">
-              <div className="pt-cat-bar-fill" style={{ width: `${item.pct}%` }} />
+            >
+              <div className="pt-cat-bar-track">
+                <div className="pt-cat-bar-fill" style={{ width: `${item.pct}%` }} />
+              </div>
+              <span className="pt-cat-label">{item.isOthers ? item.label + ' ▾' : truncate(item.label, 16)}</span>
+              <span className="pt-cat-pct">{item.pct}%</span>
             </div>
-            <span className="pt-cat-label">{item.isOthers ? item.label + ' ▾' : truncate(item.label, 16)}</span>
-            <span className="pt-cat-pct">{item.pct}%</span>
-          </div>
-        )
-      })}
-      {popoverOpen && (
-        <CategoryPopover
+          )
+          if (item.isOthers) {
+            return <PopoverTrigger key={item.label} asChild>{row}</PopoverTrigger>
+          }
+          return row
+        })}
+      </div>
+      <PopoverContent side="bottom" align="start">
+        <CategoryPopoverContent
           allCategories={unfilteredAllCategories ?? summary.allCategories}
           activeSet={activeSet}
           onFilter={onFilter}
-          onClose={() => setPopoverOpen(false)}
-          anchorRef={othersRef}
         />
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
