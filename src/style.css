@@ -665,6 +665,14 @@ h1 {
   letter-spacing: normal;
   color: var(--muted);
 }
+.pt-bool-labels strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.pt-pct {
+  opacity: 0.6;
+  font-size: 9px;
+}
 
 /* --- Stats bar --- */
 

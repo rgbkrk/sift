@@ -161,8 +161,8 @@ function BinaryNumericRatioBar({ summary, activeFilter, onFilter }: {
         />
       </div>
       <div className="pt-bool-labels">
-        <span>{lowLabel} {lowPct}%</span>
-        <span>{highLabel} {highPct}%</span>
+        <span><strong>{lowLabel}</strong> <span className="pt-pct">{lowPct}%</span></span>
+        <span><strong>{highLabel}</strong> <span className="pt-pct">{highPct}%</span></span>
       </div>
     </div>
   )
