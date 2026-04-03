@@ -746,9 +746,19 @@ pub fn cast_column(handle: u32, col: usize, target_type: &str) -> Result<(), JsV
                 }
                 std::sync::Arc::new(builder.finish()) as arrow::array::ArrayRef
             } else {
-                // Use arrow-cast for other conversions
-                arrow_cast::cast::cast(column.as_ref(), &target_dt)
-                    .map_err(|e| JsValue::from_str(&format!("Cast error: {}", e)))?
+                // Use arrow-cast for other conversions.
+                // Wrap in catch_unwind because some casts panic instead of returning Err
+                // (e.g., casting text with non-numeric values to Float64).
+                let col_ref = column.clone();
+                let dt = target_dt.clone();
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    arrow_cast::cast::cast(col_ref.as_ref(), &dt)
+                }));
+                match result {
+                    Ok(Ok(arr)) => arr,
+                    Ok(Err(e)) => return Err(JsValue::from_str(&format!("Cast error: {}", e))),
+                    Err(_) => return Err(JsValue::from_str("Cast failed: incompatible data for target type")),
+                }
             };
 
             // Rebuild the batch with the casted column

@@ -1471,7 +1471,12 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
       case 'cast':
         if (data.castColumn) {
-          data.castColumn(colIndex, action.targetType)
+          try {
+            data.castColumn(colIndex, action.targetType)
+          } catch (e) {
+            console.warn('Cast failed:', e)
+            break
+          }
           // Update the column metadata
           columns[colIndex].columnType = action.targetType
           columns[colIndex].numeric = action.targetType === 'numeric'
