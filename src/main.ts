@@ -207,7 +207,10 @@ async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement
   const url = await resolveHuggingFaceParquetUrl(dataset.path, dataset.config)
 
   renderLoadingSkeleton(tableRoot, 'Downloading Parquet…')
-  const [resp] = await Promise.all([fetch(url), wasmInitPromise])
+  const [resp, wasmOk] = await Promise.all([fetch(url), wasmInitPromise])
+  if (!wasmOk) {
+    throw new Error('Failed to load nteract-predicate WASM module')
+  }
   if (!resp.ok) {
     throw new Error(`Failed to fetch Parquet: ${resp.status} ${resp.statusText}`)
   }
