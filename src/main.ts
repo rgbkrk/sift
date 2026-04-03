@@ -1,5 +1,6 @@
 import { RecordBatchReader } from 'apache-arrow'
 import type { RecordBatch } from 'apache-arrow'
+import { Subject, Observable, EMPTY, defer, switchMap, catchError } from 'rxjs'
 import {
   createTable,
   type Column,
@@ -43,6 +44,9 @@ const generatedColumnOverrides: Record<string, Partial<Column>> = {
 let currentEngine: TableEngine | null = null
 let currentDatasetId = 'generated'
 
+// --- Reactive dataset selection ---
+const dataset$ = new Subject<DatasetEntry>()
+
 // --- Boot ---
 
 function getInitialDataset(): string {
@@ -50,11 +54,48 @@ function getInitialDataset(): string {
   return params.get('dataset') ?? 'spotify'
 }
 
-async function boot() {
+function boot() {
   const app = document.getElementById('app')!
   currentDatasetId = getInitialDataset()
   renderShell(app)
-  await loadDataset(currentDatasetId)
+
+  // Wire up the reactive pipeline — switchMap cancels in-flight loads on dataset change
+  dataset$.pipe(
+    switchMap(dataset => {
+      const tableRoot = document.getElementById('table-root')!
+
+      // Clean up previous table before starting the new load
+      if (currentEngine) {
+        currentEngine.destroy()
+        currentEngine = null
+      }
+
+      // Update description and page title
+      const descEl = document.getElementById('dataset-description')
+      if (descEl) descEl.textContent = dataset.description
+      document.title = `Sift — ${dataset.label}`
+
+      renderLoadingSkeleton(tableRoot, 'Loading data…')
+
+      const load$ = dataset.source === 'local'
+        ? loadLocalArrow$(dataset, tableRoot)
+        : loadHuggingFaceWasm$(dataset, tableRoot)
+
+      return load$.pipe(
+        catchError(err => {
+          console.error('Failed to load dataset:', err)
+          tableRoot.innerHTML = `<div class="pt-loading">
+            Failed to load dataset: ${err instanceof Error ? err.message : String(err)}
+          </div>`
+          return EMPTY
+        }),
+      )
+    }),
+  ).subscribe()
+
+  // Kick off the initial dataset load
+  const initial = DATASETS.find(d => d.id === currentDatasetId)
+  if (initial) dataset$.next(initial)
 }
 
 function renderShell(app: HTMLElement) {
@@ -96,7 +137,10 @@ function renderShell(app: HTMLElement) {
         url.searchParams.set('dataset', newId)
       }
       window.history.pushState({}, '', url)
-      loadDataset(newId)
+
+      // Push to the reactive pipeline — switchMap handles cancellation
+      const entry = DATASETS.find(d => d.id === newId)
+      if (entry) dataset$.next(entry)
     }
   })
 
@@ -115,184 +159,201 @@ function renderShell(app: HTMLElement) {
   })
 }
 
-async function loadDataset(datasetId: string) {
-  const dataset = DATASETS.find(d => d.id === datasetId)
-  if (!dataset) return
+// --- Observable loaders ---
 
-  // Update description and page title
-  const descEl = document.getElementById('dataset-description')
-  if (descEl) descEl.textContent = dataset.description
-  document.title = `Sift — ${dataset.label}`
+/**
+ * Load a local Arrow file as an observable stream.
+ * First emission mounts the table, subsequent emissions append batches.
+ */
+function loadLocalArrow$(dataset: DatasetEntry, tableRoot: HTMLElement): Observable<void> {
+  return new Observable<void>(subscriber => {
+    let cancelled = false
 
-  // Clean up previous table
-  if (currentEngine) {
-    currentEngine.destroy()
-    currentEngine = null
-  }
+    ;(async () => {
+      const response = await fetch(`${import.meta.env.BASE_URL}${dataset.path}`)
+      if (!response.ok) {
+        tableRoot.innerHTML =
+          '<div class="pt-loading">Missing data.arrow — run <code>npm run generate</code> first.</div>'
+        subscriber.complete()
+        return
+      }
 
-  const tableRoot = document.getElementById('table-root')!
-  renderLoadingSkeleton(tableRoot, 'Loading data…')
+      const reader = await RecordBatchReader.from(response)
+      await reader.open()
 
-  try {
-    if (dataset.source === 'local') {
-      await loadLocalArrow(dataset, tableRoot)
-    } else {
-      await loadHuggingFaceWasm(dataset, tableRoot)
-    }
-  } catch (err) {
-    console.error('Failed to load dataset:', err)
-    tableRoot.innerHTML = `<div class="pt-loading">
-      Failed to load dataset: ${err instanceof Error ? err.message : String(err)}
-    </div>`
-  }
+      const { columns, fieldNames, stringCols, rawCols, accumulators, tableData } =
+        buildTableState(reader.schema, dataset, generatedColumnOverrides)
+
+      let totalRows = 0
+
+      function appendBatch(batch: RecordBatch) {
+        const batchRows = batch.numRows
+        const startRow = totalRows
+        for (let c = 0; c < fieldNames.length; c++) {
+          const col = batch.getChild(fieldNames[c])!
+          for (let r = 0; r < batchRows; r++) {
+            const val = col.get(r)
+            rawCols[c].push(val)
+            stringCols[c].push(formatCell(columns[c].columnType, val))
+          }
+          accumulators[c].add(rawCols[c], startRow, batchRows)
+        }
+        totalRows += batchRows
+        tableData.rowCount = totalRows
+        tableData.columnSummaries = accumulators.map(a => a.snapshot(totalRows))
+      }
+
+      const firstResult = await reader.next()
+      if (cancelled) return
+      if (firstResult.done) {
+        tableRoot.innerHTML = '<div class="pt-loading">No data in Arrow file.</div>'
+        subscriber.complete()
+        return
+      }
+      appendBatch(firstResult.value)
+
+      tableRoot.innerHTML = ''
+      currentEngine = createTable(tableRoot, tableData)
+      subscriber.next()
+
+      for await (const batch of reader) {
+        if (cancelled) return
+        appendBatch(batch)
+        currentEngine!.onBatchAppended()
+        subscriber.next()
+      }
+
+      currentEngine!.setStreamingDone()
+      subscriber.complete()
+    })().catch(err => {
+      if (!cancelled) subscriber.error(err)
+    })
+
+    return () => { cancelled = true }
+  })
 }
 
-async function loadLocalArrow(dataset: DatasetEntry, tableRoot: HTMLElement) {
-  const response = await fetch(`${import.meta.env.BASE_URL}${dataset.path}`)
-  if (!response.ok) {
-    tableRoot.innerHTML =
-      '<div class="pt-loading">Missing data.arrow — run <code>npm run generate</code> first.</div>'
-    return
-  }
+/**
+ * Load a HuggingFace Parquet dataset as an observable stream.
+ * Emits once per row group. First emission mounts the table, the rest append.
+ */
+function loadHuggingFaceWasm$(dataset: DatasetEntry, tableRoot: HTMLElement): Observable<void> {
+  // Outer defer ensures fresh execution per subscription (important for switchMap re-subscribe)
+  return defer(() => new Observable<void>(subscriber => {
+    let cancelled = false
 
-  const reader = await RecordBatchReader.from(response)
-  await reader.open()
+    ;(async () => {
+      renderLoadingSkeleton(tableRoot, 'Resolving dataset…')
 
-  const { columns, fieldNames, stringCols, rawCols, accumulators, tableData } =
-    buildTableState(reader.schema, dataset, generatedColumnOverrides)
+      // Start WASM init in parallel with URL resolution + Parquet download
+      const { isAvailable } = await import('./predicate')
+      const wasmInitPromise = isAvailable()
 
-  let totalRows = 0
+      if (cancelled) return
+      const url = await resolveHuggingFaceParquetUrl(dataset.path, dataset.config)
 
-  function appendBatch(batch: RecordBatch) {
-    const batchRows = batch.numRows
-    const startRow = totalRows
-    for (let c = 0; c < fieldNames.length; c++) {
-      const col = batch.getChild(fieldNames[c])!
-      for (let r = 0; r < batchRows; r++) {
-        const val = col.get(r)
-        rawCols[c].push(val)
-        stringCols[c].push(formatCell(columns[c].columnType, val))
+      if (cancelled) return
+      renderLoadingSkeleton(tableRoot, 'Downloading Parquet…')
+      const [resp, wasmOk] = await Promise.all([fetch(url), wasmInitPromise])
+      if (!wasmOk) {
+        throw new Error('Failed to load nteract-predicate WASM module')
       }
-      accumulators[c].add(rawCols[c], startRow, batchRows)
-    }
-    totalRows += batchRows
-    tableData.rowCount = totalRows
-    tableData.columnSummaries = accumulators.map(a => a.snapshot(totalRows))
-  }
-
-  const firstResult = await reader.next()
-  if (firstResult.done) {
-    tableRoot.innerHTML = '<div class="pt-loading">No data in Arrow file.</div>'
-    return
-  }
-  appendBatch(firstResult.value)
-
-  tableRoot.innerHTML = ''
-  currentEngine = createTable(tableRoot, tableData)
-
-  for await (const batch of reader) {
-    appendBatch(batch)
-    currentEngine.onBatchAppended()
-  }
-  currentEngine.setStreamingDone()
-}
-
-async function loadHuggingFaceWasm(dataset: DatasetEntry, tableRoot: HTMLElement) {
-  renderLoadingSkeleton(tableRoot, 'Resolving dataset…')
-
-  // Start WASM init in parallel with URL resolution + Parquet download
-  const { isAvailable } = await import('./predicate')
-  const wasmInitPromise = isAvailable()
-
-  const url = await resolveHuggingFaceParquetUrl(dataset.path, dataset.config)
-
-  renderLoadingSkeleton(tableRoot, 'Downloading Parquet…')
-  const [resp, wasmOk] = await Promise.all([fetch(url), wasmInitPromise])
-  if (!wasmOk) {
-    throw new Error('Failed to load nteract-predicate WASM module')
-  }
-  if (!resp.ok) {
-    throw new Error(`Failed to fetch Parquet: ${resp.status} ${resp.statusText}`)
-  }
-  const parquetBytes = new Uint8Array(await resp.arrayBuffer())
-
-  renderLoadingSkeleton(tableRoot, 'Loading into WASM…')
-  const mod = getModuleSync()
-
-  // Get metadata to know how many row groups
-  const meta = mod.parquet_metadata(parquetBytes)
-  const numRowGroups = meta[0]
-  const totalRows = meta[1]
-
-  // Read schema metadata for pandas index_columns and HuggingFace feature types
-  let schemaMetadata: Record<string, string> = {}
-  try {
-    schemaMetadata = mod.parquet_schema_metadata(parquetBytes) as Record<string, string>
-  } catch { /* metadata extraction is best-effort */ }
-
-  // Parse pandas index columns
-  const pandasIndexCols = new Set<string>()
-  if (schemaMetadata.pandas) {
-    try {
-      const pandas = JSON.parse(schemaMetadata.pandas)
-      for (const ic of pandas.index_columns ?? []) {
-        if (typeof ic === 'string') pandasIndexCols.add(ic)
-        // Range index descriptors don't map to a named column
+      if (!resp.ok) {
+        throw new Error(`Failed to fetch Parquet: ${resp.status} ${resp.statusText}`)
       }
-    } catch { /* ignore parse errors */ }
-  }
+      const parquetBytes = new Uint8Array(await resp.arrayBuffer())
 
-  // Parse HuggingFace feature metadata
-  const hfFeatures: Record<string, { _type: string; names?: string[] }> = {}
-  if (schemaMetadata.huggingface) {
-    try {
-      const hf = JSON.parse(schemaMetadata.huggingface)
-      Object.assign(hfFeatures, hf?.info?.features ?? {})
-    } catch { /* ignore parse errors */ }
-  }
+      if (cancelled) return
+      renderLoadingSkeleton(tableRoot, 'Loading into WASM…')
+      const mod = getModuleSync()
 
-  // Load first row group → mount table immediately
-  const handle = mod.load_parquet_row_group(parquetBytes, 0, 0)
+      // Get metadata to know how many row groups
+      const meta = mod.parquet_metadata(parquetBytes)
+      const numRowGroups = meta[0]
+      const totalRows = meta[1]
 
-  const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
-  tableData.prefetchViewport = prefetchViewport
-  tableData.recomputeSummaries = () => updateWasmSummaries(mod, handle, tableData, columns, pandasIndexCols)
+      // Read schema metadata for pandas index_columns and HuggingFace feature types
+      let schemaMetadata: Record<string, string> = {}
+      try {
+        schemaMetadata = mod.parquet_schema_metadata(parquetBytes) as Record<string, string>
+      } catch { /* metadata extraction is best-effort */ }
 
-  // Apply metadata: mark pandas index columns, narrow index columns
-  const isIndexName = (name: string) => /^(unnamed[: _]*\d*|index|_?id|rowid|row_?id|row_?num)$/i.test(name)
-  for (const col of columns) {
-    if (pandasIndexCols.has(col.key) || isIndexName(col.key)) {
-      // Size to fit the max row number — estimate from digit count
-      const digits = totalRows.toLocaleString().length
-      col.width = Math.max(60, digits * 9 + 24) // ~9px per char + cell padding
-      col.sortable = false
-      // Hide labels for pandas artifacts — not real column names users would query
-      if (/^(unnamed[: _]*\d*|__index_level_\d+__)$/i.test(col.key)) col.label = ''
-    }
-    const hfFeature = hfFeatures[col.key]
-    if (hfFeature?._type === 'ClassLabel' && col.columnType !== 'categorical') {
-      // HF says this is a classification label — treat as categorical
-      col.columnType = 'categorical'
-      col.numeric = false
-    }
-  }
+      // Parse pandas index columns
+      const pandasIndexCols = new Set<string>()
+      if (schemaMetadata.pandas) {
+        try {
+          const pandas = JSON.parse(schemaMetadata.pandas)
+          for (const ic of pandas.index_columns ?? []) {
+            if (typeof ic === 'string') pandasIndexCols.add(ic)
+            // Range index descriptors don't map to a named column
+          }
+        } catch { /* ignore parse errors */ }
+      }
 
-  // Compute initial summaries from first row group
-  updateWasmSummaries(mod, handle, tableData, columns, pandasIndexCols)
+      // Parse HuggingFace feature metadata
+      const hfFeatures: Record<string, { _type: string; names?: string[] }> = {}
+      if (schemaMetadata.huggingface) {
+        try {
+          const hf = JSON.parse(schemaMetadata.huggingface)
+          Object.assign(hfFeatures, hf?.info?.features ?? {})
+        } catch { /* ignore parse errors */ }
+      }
 
-  tableRoot.innerHTML = ''
-  currentEngine = createTable(tableRoot, tableData)
+      // Load first row group → mount table immediately
+      const handle = mod.load_parquet_row_group(parquetBytes, 0, 0)
 
-  // Stream remaining row groups progressively
-  for (let g = 1; g < numRowGroups; g++) {
-    // Yield to the event loop so the UI stays responsive
-    await new Promise(r => setTimeout(r, 0))
-    mod.load_parquet_row_group(parquetBytes, g, handle)
-    tableData.rowCount = mod.num_rows(handle)
-    updateWasmSummaries(mod, handle, tableData, columns)
-    currentEngine!.onBatchAppended()
-  }
-  currentEngine!.setStreamingDone()
+      const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
+      tableData.prefetchViewport = prefetchViewport
+      tableData.recomputeSummaries = () => updateWasmSummaries(mod, handle, tableData, columns, pandasIndexCols)
+
+      // Apply metadata: mark pandas index columns, narrow index columns
+      const isIndexName = (name: string) => /^(unnamed[: _]*\d*|index|_?id|rowid|row_?id|row_?num)$/i.test(name)
+      for (const col of columns) {
+        if (pandasIndexCols.has(col.key) || isIndexName(col.key)) {
+          // Size to fit the max row number — estimate from digit count
+          const digits = totalRows.toLocaleString().length
+          col.width = Math.max(60, digits * 9 + 24) // ~9px per char + cell padding
+          col.sortable = false
+          // Hide labels for pandas artifacts — not real column names users would query
+          if (/^(unnamed[: _]*\d*|__index_level_\d+__)$/i.test(col.key)) col.label = ''
+        }
+        const hfFeature = hfFeatures[col.key]
+        if (hfFeature?._type === 'ClassLabel' && col.columnType !== 'categorical') {
+          // HF says this is a classification label — treat as categorical
+          col.columnType = 'categorical'
+          col.numeric = false
+        }
+      }
+
+      // Compute initial summaries from first row group
+      updateWasmSummaries(mod, handle, tableData, columns, pandasIndexCols)
+
+      if (cancelled) return
+      tableRoot.innerHTML = ''
+      currentEngine = createTable(tableRoot, tableData)
+      subscriber.next()
+
+      // Stream remaining row groups progressively
+      for (let g = 1; g < numRowGroups; g++) {
+        if (cancelled) return
+        // Yield to the event loop so the UI stays responsive
+        await new Promise(r => setTimeout(r, 0))
+        if (cancelled) return
+        mod.load_parquet_row_group(parquetBytes, g, handle)
+        tableData.rowCount = mod.num_rows(handle)
+        updateWasmSummaries(mod, handle, tableData, columns)
+        currentEngine!.onBatchAppended()
+        subscriber.next()
+      }
+
+      currentEngine!.setStreamingDone()
+      subscriber.complete()
+    })().catch(err => {
+      if (!cancelled) subscriber.error(err)
+    })
+
+    return () => { cancelled = true }
+  }))
 }
 
 /** Compute summaries from the WASM store and update tableData. */
@@ -391,7 +452,7 @@ function renderLoadingSkeleton(tableRoot: HTMLElement, status: string) {
 }
 
 // Old JS/parquet-wasm HuggingFace loader removed — WASM path handles everything now.
-// See loadHuggingFaceWasm() above.
+// See loadHuggingFaceWasm$() above.
 
 // Kept for reference: type refinement logic (string→timestamp, null sentinels)
 /** Build table columns, stores, and accumulators from an Arrow schema. */
