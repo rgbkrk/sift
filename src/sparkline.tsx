@@ -306,6 +306,7 @@ function NumericHistogram({ summary, unfilteredSummary, width, visibleBins, acti
                 width={barW}
                 height={h}
                 fill={fill}
+                style={{ transition: 'y 200ms ease-out, height 200ms ease-out, fill 150ms ease-out' }}
               />
             )
           })}
@@ -685,6 +686,7 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
                 width={barW}
                 height={h}
                 fill={fill}
+                style={{ transition: 'y 200ms ease-out, height 200ms ease-out, fill 150ms ease-out' }}
               />
             )
           })}

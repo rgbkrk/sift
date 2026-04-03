@@ -1588,8 +1588,19 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     ariaLive.textContent = hasActiveFilters()
       ? `Filtered to ${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`
       : `${rowCount.toLocaleString()} rows`
-    // Summaries + labels deferred — they're the expensive part
-    scheduleSummaryRecompute()
+    // WASM path is fast enough to compute summaries synchronously — no flicker.
+    // JS fallback still debounces since it's O(rows × cols) with per-cell access.
+    if (data.recomputeFilteredSummaries) {
+      if (summaryDebounceTimer !== null) {
+        clearTimeout(summaryDebounceTimer)
+        summaryDebounceTimer = null
+      }
+      recomputeFilteredSummaries()
+      renderAllSummaries()
+      updateFilteredLabels()
+    } else {
+      scheduleSummaryRecompute()
+    }
     viewport.scrollTop = 0
     for (const pr of pool) {
       pr.assignedRow = -1

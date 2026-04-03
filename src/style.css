@@ -331,6 +331,7 @@ h1 {
   color: var(--muted);
   overflow: hidden;
   white-space: nowrap;
+  transition: opacity 150ms ease-out;
 }
 
 .pt-cat-bar-track {
@@ -347,6 +348,7 @@ h1 {
   background: var(--accent);
   border-radius: 2px;
   min-width: 2px;
+  transition: width 200ms ease-out;
 }
 
 .pt-cat-label {
@@ -630,10 +632,12 @@ h1 {
 
 .pt-bool-true {
   background: #3a8a5c;
+  transition: width 200ms ease-out;
 }
 
 .pt-bool-false {
   background: #c4513a;
+  transition: width 200ms ease-out;
 }
 
 .pt-bool-null {
@@ -644,6 +648,7 @@ h1 {
     rgba(0, 0, 0, 0.03) 2px,
     rgba(0, 0, 0, 0.03) 4px
   );
+  transition: width 200ms ease-out;
 }
 
 .pt-bool-clickable {
