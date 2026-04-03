@@ -77,4 +77,20 @@ export const DATASETS: DatasetEntry[] = [
     path: 'mstz/heart_failure',
     rows: '299',
   },
+  {
+    id: 'wine',
+    label: 'Wine Quality (numeric)',
+    description: '6.5k wines — all numeric columns (acidity, sugar, pH, alcohol…), tests histograms',
+    source: 'huggingface',
+    path: 'mstz/wine_quality',
+    rows: '~6,500',
+  },
+  {
+    id: 'titanic',
+    label: 'Titanic (mixed + nulls)',
+    description: '891 passengers — mixed types, lots of nulls in age/cabin, classic edge-case dataset',
+    source: 'huggingface',
+    path: 'phihung/titanic',
+    rows: '891',
+  },
 ]
