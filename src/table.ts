@@ -27,6 +27,8 @@ export type NumericColumnSummary = {
   min: number
   max: number
   bins: { x0: number; x1: number; count: number }[]
+  /** Number of distinct finite values seen (capped at tracking limit). */
+  uniqueCount?: number
 }
 
 export type CategoryEntry = { label: string; count: number; pct: number }

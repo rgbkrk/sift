@@ -106,6 +106,9 @@ export interface SummaryAccumulator {
   snapshot(totalRows: number): ColumnSummary
 }
 
+/** Cap for tracking unique numeric values (avoids unbounded memory). */
+const UNIQUE_TRACK_LIMIT = 20
+
 export class NumericAccumulator implements SummaryAccumulator {
   min = Infinity; max = -Infinity
   monotonic = true; lastValue = -Infinity
@@ -114,6 +117,8 @@ export class NumericAccumulator implements SummaryAccumulator {
   private infCount = 0
   private negInfCount = 0
   private nullCount = 0
+  /** Tracks distinct finite values. Set to null when the cap is exceeded. */
+  private uniqueValues: Set<number> | null = new Set()
 
   add(rawCol: unknown[], startRow: number, count: number) {
     for (let r = startRow; r < startRow + count; r++) {
@@ -124,6 +129,10 @@ export class NumericAccumulator implements SummaryAccumulator {
       if (v === Infinity) { this.infCount++; continue }
       if (v === -Infinity) { this.negInfCount++; continue }
       this.finiteValues.push(v)
+      if (this.uniqueValues !== null) {
+        this.uniqueValues.add(v)
+        if (this.uniqueValues.size > UNIQUE_TRACK_LIMIT) this.uniqueValues = null
+      }
       if (v < this.min) this.min = v
       if (v > this.max) this.max = v
       if (v < this.lastValue) this.monotonic = false
@@ -145,7 +154,13 @@ export class NumericAccumulator implements SummaryAccumulator {
       if (idx < 0) idx = 0
       bins[idx].count++
     }
-    return { kind: 'numeric', min: this.min, max: this.max, bins }
+    return {
+      kind: 'numeric',
+      min: this.min,
+      max: this.max,
+      bins,
+      uniqueCount: this.uniqueValues?.size,
+    }
   }
 }
 

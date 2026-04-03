@@ -102,6 +102,60 @@ function BrushLayer({ width, min, max, activeFilter, onFilter }: {
   )
 }
 
+// --- Low-cardinality numeric bars ---
+
+/** Renders numeric columns with few unique values as categorical-style bars. */
+function LowCardinalityNumericBars({ summary, activeFilter, onFilter }: {
+  summary: NumericColumnSummary
+  activeFilter?: RangeFilter | null
+  onFilter: FilterCallback
+}) {
+  // Collect non-zero bins as distinct "categories", using the bin midpoint as label
+  const entries = summary.bins
+    .filter(b => b.count > 0)
+    .map(b => {
+      // Use integer label if both edges are integers and close together
+      const mid = (b.x0 + b.x1) / 2
+      const label = Number.isInteger(b.x0) && (b.x1 - b.x0) < 2 ? String(b.x0) : formatNum(mid)
+      return { label, count: b.count, x0: b.x0, x1: b.x1 }
+    })
+
+  const total = entries.reduce((s, e) => s + e.count, 0)
+  const items = entries.map(e => ({
+    ...e,
+    pct: Math.round((e.count / total) * 1000) / 10,
+  }))
+
+  return (
+    <div className="pt-cat-summary">
+      {items.map(item => {
+        // Highlight bar if its range overlaps the active range filter
+        const isActive = !activeFilter || (item.x1 > activeFilter.min && item.x0 < activeFilter.max)
+        return (
+          <div
+            key={item.label}
+            className="pt-cat-row pt-cat-clickable"
+            style={{ opacity: activeFilter && !isActive ? 0.3 : 1 }}
+            onClick={() => {
+              if (activeFilter && activeFilter.min === item.x0 && activeFilter.max === item.x1) {
+                onFilter(null)
+              } else {
+                onFilter({ kind: 'range', min: item.x0, max: item.x1 })
+              }
+            }}
+          >
+            <div className="pt-cat-bar-track">
+              <div className="pt-cat-bar-fill" style={{ width: `${item.pct}%` }} />
+            </div>
+            <span className="pt-cat-label">{item.label}</span>
+            <span className="pt-cat-pct">{item.pct}%</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // --- Numeric histogram ---
 
 function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter }: {
@@ -111,6 +165,11 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
   activeFilter?: RangeFilter | null
   onFilter: FilterCallback
 }) {
+  // Low-cardinality: show as categorical bars instead of histogram
+  if (summary.uniqueCount !== undefined && summary.uniqueCount < 10) {
+    return <LowCardinalityNumericBars summary={summary} activeFilter={activeFilter} onFilter={onFilter} />
+  }
+
   const data = summary.bins.map((bin, i) => ({ bin: i, count: bin.count }))
   const hasOverlay = visibleBins && Math.max(...visibleBins) > 0
   const isFiltered = !!activeFilter

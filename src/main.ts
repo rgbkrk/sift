@@ -289,12 +289,20 @@ function updateWasmSummaries(
       case 'timestamp': {
         const bins = mod.store_histogram(handle, c, BIN_COUNT) as { x0: number; x1: number; count: number }[]
         if (bins.length === 0) return null
-        return {
+        const summary: { kind: 'numeric' | 'timestamp'; min: number; max: number; bins: typeof bins; uniqueCount?: number } = {
           kind: col.columnType as 'numeric' | 'timestamp',
           min: bins[0].x0,
           max: bins[bins.length - 1].x1,
           bins,
         }
+        // Detect low cardinality for numeric columns: count non-zero bins as a proxy for unique values
+        if (col.columnType === 'numeric') {
+          const nonZeroBins = bins.filter(b => b.count > 0).length
+          if (nonZeroBins <= 10) {
+            summary.uniqueCount = nonZeroBins
+          }
+        }
+        return summary
       }
     }
   })
