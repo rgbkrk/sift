@@ -11,7 +11,7 @@ test.describe('Dataset Picker', () => {
     await expect(select).toBeVisible()
 
     const options = select.locator('option')
-    await expect(options).toHaveCount(9)
+    await expect(options).toHaveCount(8)
     await expect(options.first()).toContainText('Generated')
   })
 
