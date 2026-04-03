@@ -752,7 +752,10 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
     if (heightsDirty) {
       recomputeAllHeights()
-      scrollContent.style.height = totalHeight + 'px'
+      // Account for header height — row pool is absolute inside scroll-content
+      const headerH = headerEl.offsetHeight
+      rowPool.style.top = headerH + 'px'
+      scrollContent.style.height = (totalHeight + headerH) + 'px'
     }
 
     if (filteredCount === 0) {
@@ -763,7 +766,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     emptyEl.style.display = 'none'
     rowPool.style.display = ''
 
-    const scrollTop = viewport.scrollTop
+    const headerH = headerEl.offsetHeight
+    const scrollTop = Math.max(0, viewport.scrollTop - headerH)
     const viewportH = viewport.clientHeight
 
     const first = Math.max(0, rowAtOffset(scrollTop) - OVERSCAN)
