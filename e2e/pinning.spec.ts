@@ -128,4 +128,24 @@ test.describe('Column Pinning', () => {
     const scoreIndexAfter = labelsAfter.indexOf('Score')
     expect(scoreIndexAfter).toBeLessThan(scoreIndexBefore)
   })
+
+  test('keyboard shortcut "p" toggles pin on focused column', async ({ page }) => {
+    // Focus the Name column header and press 'p' to pin
+    const nameTh = page.locator('.pt-th').filter({ hasText: 'Name' })
+    await nameTh.focus()
+    await nameTh.press('p')
+    await page.waitForTimeout(200)
+
+    // Name should now be sticky (pinned)
+    const pinnedPos = await nameTh.evaluate(el => el.style.position)
+    expect(pinnedPos).toBe('sticky')
+
+    // Press 'p' again to unpin
+    await nameTh.focus()
+    await nameTh.press('p')
+    await page.waitForTimeout(200)
+
+    const unpinnedPos = await nameTh.evaluate(el => el.style.position)
+    expect(unpinnedPos).not.toBe('sticky')
+  })
 })

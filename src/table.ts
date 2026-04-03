@@ -410,6 +410,16 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     th.appendChild(summaryEl)
     summaryContainers.push(summaryEl)
 
+    // Keyboard shortcut: 'p' to toggle pin
+    th.setAttribute('tabindex', '0')
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault()
+        const action: ColumnAction = pinnedColumns.has(c) ? { kind: 'unpin' } : { kind: 'pin' }
+        handleColumnAction(c, action)
+      }
+    })
+
     // Right-click context menu
     th.addEventListener('contextmenu', (e) => {
       e.preventDefault()
