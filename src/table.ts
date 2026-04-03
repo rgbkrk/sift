@@ -1,4 +1,5 @@
 import { prepare, layout, type PreparedText } from '@chenglou/pretext'
+import { animationFrameScheduler, interval, Subject, withLatestFrom, map, scan } from 'rxjs'
 import { renderColumnSummary, unmountColumnSummary } from './sparkline'
 import { mountColumnMenu, unmountColumnMenu, type ColumnAction } from './column-menu'
 import { fitColumnWidths } from './auto-width'
@@ -722,9 +723,31 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   let prevRange = '', prevDom = '', prevFps = ''
 
-  // FPS from actual render timestamps — only counts frames where we did work
-  const FPS_WINDOW = 30
-  const renderTimestamps: number[] = []
+  // RxJS FPS: frame counter on animationFrameScheduler, render cost from Subject
+  const renderCost$ = new Subject<number>() // receives elapsed ms per render
+  const fps$ = interval(0, animationFrameScheduler).pipe(
+    // Each emission = one display frame. Pair with timestamps for FPS.
+    scan<number, { prevTime: number; deltas: number[] }>((state, _) => {
+      const now = performance.now()
+      if (state.prevTime > 0) {
+        const delta = now - state.prevTime
+        const deltas = [...state.deltas, delta].slice(-30)
+        return { prevTime: now, deltas }
+      }
+      return { prevTime: now, deltas: [] }
+    }, { prevTime: 0, deltas: [] }),
+    map(({ deltas }) => {
+      if (deltas.length === 0) return '– fps'
+      const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length
+      return `${Math.round(1000 / avg)} fps`
+    }),
+  )
+  const fpsSub = fps$.pipe(
+    withLatestFrom(renderCost$),
+  ).subscribe(([fpsStr, cost]) => {
+    const str = `${fpsStr}·${cost.toFixed(1)}ms`
+    prevFps = updateStat(statFrame, str, prevFps)
+  })
 
   function updateStat(el: HTMLSpanElement, value: string, prev: string): string {
     if (value !== prev) {
@@ -987,21 +1010,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const rangeStr = `showing ${first}–${Math.min(last, filteredCount - 1)}`
     const domStr = `${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
 
-    // FPS from actual render timestamps
-    const now = performance.now()
-    renderTimestamps.push(now)
-    if (renderTimestamps.length > FPS_WINDOW) renderTimestamps.shift()
-    const span = renderTimestamps.length > 1
-      ? renderTimestamps[renderTimestamps.length - 1] - renderTimestamps[0]
-      : 0
-    const fpsStr = span > 0
-      ? `${Math.round(((renderTimestamps.length - 1) / span) * 1000)} fps`
-      : '– fps'
-    const elapsedStr = `${elapsed.toFixed(1)}ms`
+    // Emit render cost — FPS display handled by RxJS observable
+    renderCost$.next(elapsed)
 
     prevRange = updateStat(statRange, rangeStr, prevRange)
     prevDom = updateStat(statDom, domStr, prevDom)
-    prevFps = updateStat(statFrame, `${fpsStr}·${elapsedStr}`, prevFps)
   }
 
   // --- Scroll handler ---
@@ -1210,11 +1223,12 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   // --- Destroy ---
 
   function destroy() {
-    // Cancel pending render + FPS tracker
+    // Cancel pending render + FPS observable
     if (scheduledRaf !== null) {
       cancelAnimationFrame(scheduledRaf)
       scheduledRaf = null
     }
+    fpsSub.unsubscribe()
 
     // Remove event listeners and observers
     headerResizeObserver?.disconnect()
