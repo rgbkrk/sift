@@ -70,8 +70,15 @@ function BrushLayer({ width, min, max, activeFilter, onFilter }: {
 
     const v0 = xToValue(x0)
     const v1 = xToValue(x1)
+
+    // If the entire range is selected, clear instead of filtering
+    if (v0 <= min && v1 >= max) {
+      onFilter(null)
+      return
+    }
+
     onFilter({ kind: 'range', min: v0, max: v1 })
-  }, [brushState, xToValue, onFilter])
+  }, [brushState, xToValue, onFilter, min, max])
 
   // Render brush rect for active selection
   let brushRect = null
@@ -91,7 +98,7 @@ function BrushLayer({ width, min, max, activeFilter, onFilter }: {
       width={width}
       height={CHART_HEIGHT}
       viewBox={`0 0 ${width} ${CHART_HEIGHT}`}
-      style={{ position: 'absolute', top: 0, left: 0, cursor: 'crosshair' }}
+      style={{ position: 'absolute', top: 0, left: 0, cursor: 'crosshair', touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -187,7 +194,9 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
   const numBins = summary.bins.length
   const gap = 1
   const barW = Math.max(1, (width - (numBins - 1) * gap) / numBins)
-  const fillColor = isFiltered ? 'rgba(149, 95, 59, 0.15)' : hasOverlay ? 'rgba(149, 95, 59, 0.2)' : 'rgba(149, 95, 59, 0.7)'
+  const baseFill = hasOverlay ? 'rgba(149, 95, 59, 0.2)' : 'rgba(149, 95, 59, 0.7)'
+  const dimFill = 'rgba(149, 95, 59, 0.12)'
+  const activeFill = 'rgba(149, 95, 59, 0.7)'
 
   return (
     <div>
@@ -202,6 +211,12 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
             if (bin.count <= 0) return null
             const x = i * (barW + gap)
             const h = (bin.count / maxCount) * CHART_HEIGHT
+            // Per-bin highlight: bins overlapping the filter range are bright, others dimmed
+            let fill = baseFill
+            if (isFiltered) {
+              const binOverlaps = bin.x1 > activeFilter.min && bin.x0 < activeFilter.max
+              fill = binOverlaps ? activeFill : dimFill
+            }
             return (
               <rect
                 key={i}
@@ -209,7 +224,7 @@ function NumericHistogram({ summary, width, visibleBins, activeFilter, onFilter 
                 y={CHART_HEIGHT - h}
                 width={barW}
                 height={h}
-                fill={fillColor}
+                fill={fill}
               />
             )
           })}
@@ -545,7 +560,12 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
   const maxCount = Math.max(...summary.bins.map(b => b.count))
   const numBins = summary.bins.length
   const barW = width / numBins
-  const fillColor = isFiltered ? 'rgba(149, 95, 59, 0.12)' : hasOverlay ? 'rgba(149, 95, 59, 0.18)' : 'rgba(149, 95, 59, 0.55)'
+  const baseFill = hasOverlay ? 'rgba(149, 95, 59, 0.18)' : 'rgba(149, 95, 59, 0.55)'
+  const dimFill = 'rgba(149, 95, 59, 0.1)'
+  const activeFill = 'rgba(149, 95, 59, 0.55)'
+
+  // Compute bin boundaries from the linear range
+  const binSpan = (summary.max - summary.min) / numBins
 
   return (
     <div>
@@ -560,6 +580,14 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
             if (bin.count <= 0) return null
             const x = i * barW
             const h = (bin.count / maxCount) * CHART_HEIGHT
+            // Per-bin highlight for timestamp bins
+            let fill = baseFill
+            if (isFiltered) {
+              const binStart = summary.min + i * binSpan
+              const binEnd = binStart + binSpan
+              const binOverlaps = binEnd > activeFilter.min && binStart < activeFilter.max
+              fill = binOverlaps ? activeFill : dimFill
+            }
             return (
               <rect
                 key={i}
@@ -567,7 +595,7 @@ function TimestampHistogram({ summary, width, visibleBins, activeFilter, onFilte
                 y={CHART_HEIGHT - h}
                 width={barW}
                 height={h}
-                fill={fillColor}
+                fill={fill}
               />
             )
           })}
