@@ -368,6 +368,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   container.classList.add('pt-table-container')
   container.setAttribute('role', 'grid')
   container.setAttribute('aria-label', 'Data table')
+  container.setAttribute('aria-rowcount', String(rowCount))
+  container.setAttribute('aria-colcount', String(columns.length))
 
   // Streaming state — progress bar is appended after stats bar below
   let streaming = true
@@ -382,6 +384,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   const headerRowEl = document.createElement('div')
   headerRowEl.className = 'pt-header-row'
+  headerRowEl.setAttribute('role', 'row')
 
   const summaryContainers: HTMLDivElement[] = []
 
@@ -389,6 +392,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const th = document.createElement('div')
     th.className = 'pt-th'
     th.setAttribute('role', 'columnheader')
+    th.setAttribute('aria-colindex', String(c + 1))
     th.style.width = colWidths[c] + 'px'
     th.dataset.col = String(c)
 
@@ -569,6 +573,14 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   const statsEl = document.createElement('div')
   statsEl.className = 'pt-stats'
 
+  // ARIA live region for screen reader announcements (filter changes, streaming)
+  const ariaLive = document.createElement('div')
+  ariaLive.setAttribute('aria-live', 'polite')
+  ariaLive.setAttribute('role', 'status')
+  ariaLive.className = 'sr-only'
+  ariaLive.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)'
+  container.appendChild(ariaLive)
+
   function makeStatSpan(className: string): HTMLSpanElement {
     const el = document.createElement('span')
     el.className = `pt-stat-value ${className}`
@@ -592,6 +604,8 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     } else {
       statRows.textContent = `${rowCount.toLocaleString()} rows`
     }
+    // Keep ARIA row count in sync
+    container.setAttribute('aria-rowcount', String(filteredCount + 1)) // +1 for header row
   }
   updateRowCountDisplay()
 
@@ -756,11 +770,14 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }
     const el = document.createElement('div')
     el.className = 'pt-row'
+    el.setAttribute('role', 'row')
     const cells: HTMLDivElement[] = []
     // Create cells in data order (cells[c] = column c)
     for (let c = 0; c < columns.length; c++) {
       const cell = document.createElement('div')
       cell.className = 'pt-cell'
+      cell.setAttribute('role', 'gridcell')
+      cell.setAttribute('aria-colindex', String(c + 1))
       cell.style.width = colWidths[c] + 'px'
       cells.push(cell)
     }
@@ -893,6 +910,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       pr.el.style.display = ''
       pr.el.style.transform = `translateY(${rowPositions[r]}px)`
       pr.el.style.height = rowHeights[r] + 'px'
+      pr.el.setAttribute('aria-rowindex', String(r + 2)) // 1-based, header is row 1
 
       if (r % 2 === 1) pr.el.classList.add('pt-row-alt')
       else pr.el.classList.remove('pt-row-alt')
@@ -922,6 +940,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
         pr.el.style.display = ''
         pr.el.style.transform = `translateY(${rowPositions[r]}px)`
         pr.el.style.height = rowHeights[r] + 'px'
+        pr.el.setAttribute('aria-rowindex', String(r + 2))
         if (r % 2 === 1) pr.el.classList.add('pt-row-alt')
         else pr.el.classList.remove('pt-row-alt')
         for (let c = 0; c < columns.length; c++) {
@@ -1329,6 +1348,10 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     updateRowCountDisplay()
     updateFilteredLabels()
     rebuildFilterPills()
+    // Announce to screen readers
+    ariaLive.textContent = hasActiveFilters()
+      ? `Filtered to ${filteredCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`
+      : `${rowCount.toLocaleString()} rows`
     renderAllSummaries()
     viewport.scrollTop = 0
     for (const pr of pool) {
