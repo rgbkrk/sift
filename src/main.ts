@@ -387,7 +387,7 @@ function loadHuggingFaceWasm$(dataset: DatasetEntry, tableRoot: HTMLElement): Ob
         if (cancelled) return
         mod.load_parquet_row_group(parquetBytes, g, handle)
         tableData.rowCount = mod.num_rows(handle)
-        updateWasmSummaries(mod, handle, tableData, columns)
+        updateWasmSummaries(mod, handle, tableData, columns, pandasIndexCols)
         currentEngine!.onBatchAppended()
         subscriber.next()
       }
