@@ -3,13 +3,6 @@ import { animationFrameScheduler, interval, map, scan, throttleTime, distinctUnt
 import { renderColumnSummary, unmountColumnSummary } from './sparkline'
 import { mountColumnMenu, unmountColumnMenu, type ColumnAction } from './column-menu'
 import { fitColumnWidths } from './auto-width'
-import {
-  NumericAccumulator,
-  TimestampAccumulator,
-  CategoricalAccumulator,
-  BooleanAccumulator,
-} from './accumulators'
-
 // --- Types ---
 
 export type ColumnType = 'numeric' | 'categorical' | 'timestamp' | 'boolean'
@@ -1531,40 +1524,20 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       return
     }
 
-    // WASM fast path: build byte mask and delegate to Rust
-    if (data.recomputeFilteredSummaries) {
-      const mask = new Uint8Array(rowCount)
-      for (let i = 0; i < filteredCount; i++) {
-        mask[viewIndices[i]] = 1
-      }
-      data.recomputeFilteredSummaries(mask, filteredCount)
-      return
+    // Build byte mask and delegate to WASM
+    const mask = new Uint8Array(rowCount)
+    for (let i = 0; i < filteredCount; i++) {
+      mask[viewIndices[i]] = 1
     }
+    data.recomputeFilteredSummaries!(mask, filteredCount)
 
-    // JS fallback: build fresh accumulators from the filtered row set
+    // Carry forward isIndex from unfiltered summaries — WASM doesn't track it
     for (let c = 0; c < columns.length; c++) {
-      const colType = columns[c].columnType
-      // Temporary string column for categorical accumulator
-      const filteredStrings: string[] = []
-      const filteredRaw: unknown[] = []
-
-      for (let i = 0; i < filteredCount; i++) {
-        const dataRow = viewIndices[i]
-        filteredRaw.push(data.getCellRaw(dataRow, c))
-        if (colType === 'categorical') {
-          filteredStrings.push(data.getCell(dataRow, c))
-        }
+      const unfiltered = unfilteredSummaries[c]
+      const filtered = data.columnSummaries[c]
+      if (unfiltered && filtered && (unfiltered as any).isIndex) {
+        ;(filtered as any).isIndex = true
       }
-
-      let acc
-      switch (colType) {
-        case 'numeric': acc = new NumericAccumulator(); break
-        case 'timestamp': acc = new TimestampAccumulator(); break
-        case 'boolean': acc = new BooleanAccumulator(); break
-        case 'categorical': acc = new CategoricalAccumulator(filteredStrings); break
-      }
-      acc.add(filteredRaw, 0, filteredCount)
-      data.columnSummaries[c] = acc.snapshot(filteredCount)
     }
   }
 
