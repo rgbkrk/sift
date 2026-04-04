@@ -31,13 +31,14 @@ test.describe('Notebook Demo', () => {
     await firstViewport.evaluate(el => el.scrollTop = 3000)
     await page.waitForTimeout(200)
 
-    // First table's range should change
-    const firstRange = page.locator('.pt-stat-range').first()
-    await expect(firstRange).not.toHaveAttribute('data-value', /showing 0–/)
+    // First table should have scrolled — its first visible row should not be row 0
+    const firstRow = await firstViewport.evaluate(el => el.scrollTop)
+    expect(firstRow).toBeGreaterThan(0)
 
     // Second table should still be at top
-    const secondRange = page.locator('.pt-stat-range').nth(1)
-    await expect(secondRange).toHaveAttribute('data-value', /showing 0–/)
+    const secondViewport = page.locator('.pt-viewport').nth(1)
+    const secondScroll = await secondViewport.evaluate(el => el.scrollTop)
+    expect(secondScroll).toBe(0)
   })
 
   test('page scrolls between tables', async ({ page }) => {

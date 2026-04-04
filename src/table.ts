@@ -1,5 +1,5 @@
 import { prepare, layout, type PreparedText } from '@chenglou/pretext'
-import { Subject, animationFrameScheduler, interval, map, scan, throttleTime, distinctUntilChanged } from 'rxjs'
+import { animationFrameScheduler, interval, map, scan, throttleTime, distinctUntilChanged } from 'rxjs'
 import { renderColumnSummary, unmountColumnSummary } from './sparkline'
 import { mountColumnMenu, unmountColumnMenu, type ColumnAction } from './column-menu'
 import { fitColumnWidths } from './auto-width'
@@ -622,8 +622,6 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   statusIndicator.title = 'Loading data…'
 
   const statRows = makeStatSpan('pt-stat-rows')
-  const statRange = makeStatSpan('pt-stat-range')
-
   // Debug stats (DOM rows, FPS) — hidden by default
   const debugGroup = document.createElement('span')
   debugGroup.className = 'pt-debug-group'
@@ -748,17 +746,6 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   }
 
   const rowsOdometer = createOdometer(statRows)
-  const rangeOdometer = createOdometer(statRange)
-
-  // Throttled range display — scroll fires 60fps but the odometer only needs
-  // stable values after scroll settles. Prevents twitchy digit-roll jitter.
-  const range$ = new Subject<string>()
-  const rangeSub = range$.pipe(
-    throttleTime(300, animationFrameScheduler, { trailing: true }),
-    distinctUntilChanged(),
-  ).subscribe(text => {
-    rangeOdometer.update(text)
-  })
 
   function updateRowCountDisplay() {
     if (hasActiveFilters()) {
@@ -813,7 +800,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   })
 
   debugGroup.append(sep(), statDom, sep(), statFrame)
-  statsEl.append(statusIndicator, statRows, sep(), statRange, debugGroup, filterPillsEl, statsSpacer, debugBtn, fullscreenBtn)
+  statsEl.append(statusIndicator, statRows, debugGroup, filterPillsEl, statsSpacer, debugBtn, fullscreenBtn)
   container.appendChild(statsEl)
 
   // Streaming progress bar — at the bottom of the table, below the stats bar
@@ -1193,10 +1180,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     lastScrollTop = scrollTop
     lastViewportHeight = viewportH
 
-    const rangeStr = `showing ${first}–${Math.min(last, filteredCount - 1)}`
-    const domStr = `${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
-
-    range$.next(rangeStr)
+    const domStr = `${first}–${Math.min(last, filteredCount - 1)} loaded · ${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
     prevDom = updateStat(statDom, domStr, prevDom)
   }
 
@@ -1569,7 +1553,6 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       scheduledRaf = null
     }
     fpsSub.unsubscribe()
-    rangeSub.unsubscribe()
     if (summaryDebounceTimer !== null) clearTimeout(summaryDebounceTimer)
 
     // Remove event listeners and observers
