@@ -32,6 +32,7 @@ type PredicateModule = {
   // Store-based summaries (operates on handle, iterates in Rust)
   store_value_counts(handle: number, col: number): { label: string; count: number }[]
   store_histogram(handle: number, col: number, num_bins: number): { x0: number; x1: number; count: number }[]
+  store_temporal_histogram(handle: number, col: number): { x0: number; x1: number; count: number }[]
   store_bool_counts(handle: number, col: number): Uint32Array
   store_sort_indices(handle: number, col: number, ascending: boolean): Uint32Array
   // Store-based filtered summaries (crossfilter — takes byte mask)

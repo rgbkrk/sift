@@ -450,33 +450,42 @@ function updateWasmSummaries(
           total: numRows,
         }
       }
-      case 'numeric':
       case 'timestamp': {
-        const bins = mod.store_histogram(handle, c, BIN_COUNT) as { x0: number; x1: number; count: number }[]
+        // Use temporal binning: auto-detects granularity (hourly/daily/monthly/yearly)
+        const bins = mod.store_temporal_histogram(handle, c) as { x0: number; x1: number; count: number }[]
         if (bins.length === 0) return null
         const totalInBins = bins.reduce((s, b) => s + b.count, 0)
         const nullCount = numRows - totalInBins
-        const summary: { kind: 'numeric' | 'timestamp'; min: number; max: number; bins: typeof bins; uniqueCount?: number; nullCount?: number } = {
-          kind: col.columnType as 'numeric' | 'timestamp',
+        return {
+          kind: 'timestamp' as const,
           min: bins[0].x0,
           max: bins[bins.length - 1].x1,
           bins,
           nullCount: nullCount > 0 ? nullCount : undefined,
         }
-        if (col.columnType === 'numeric') {
-          const nonZeroBins = bins.filter(b => b.count > 0).length
-          // Detect low cardinality: count non-zero bins as a proxy for unique values
-          if (nonZeroBins <= 10) {
-            summary.uniqueCount = nonZeroBins
-          }
-          // Detect index/ID columns: pandas metadata or name pattern.
-          // Uniform distribution alone is not enough — many real data columns
-          // (danceability, energy, etc.) are uniformly distributed too.
-          const isPandasIndex = pandasIndexCols?.has(col.key) ?? false
-          const isIndexName = /^(unnamed[: _]*\d*|index|_?id|rowid|row_?id|row_?num)$/i.test(col.key)
-          if (isPandasIndex || isIndexName) {
-            ;(summary as any).isIndex = true
-          }
+      }
+      case 'numeric': {
+        const bins = mod.store_histogram(handle, c, BIN_COUNT) as { x0: number; x1: number; count: number }[]
+        if (bins.length === 0) return null
+        const totalInBins = bins.reduce((s, b) => s + b.count, 0)
+        const nullCount = numRows - totalInBins
+        const summary: { kind: 'numeric'; min: number; max: number; bins: typeof bins; uniqueCount?: number; nullCount?: number } = {
+          kind: 'numeric',
+          min: bins[0].x0,
+          max: bins[bins.length - 1].x1,
+          bins,
+          nullCount: nullCount > 0 ? nullCount : undefined,
+        }
+        const nonZeroBins = bins.filter(b => b.count > 0).length
+        // Detect low cardinality: count non-zero bins as a proxy for unique values
+        if (nonZeroBins <= 10) {
+          summary.uniqueCount = nonZeroBins
+        }
+        // Detect index/ID columns: pandas metadata or name pattern.
+        const isPandasIndex = pandasIndexCols?.has(col.key) ?? false
+        const isIndexName = /^(unnamed[: _]*\d*|index|_?id|rowid|row_?id|row_?num)$/i.test(col.key)
+        if (isPandasIndex || isIndexName) {
+          ;(summary as any).isIndex = true
         }
         return summary
       }

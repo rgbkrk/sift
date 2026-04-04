@@ -395,6 +395,122 @@ pub fn store_histogram(handle: u32, col: usize, num_bins: usize) -> Result<JsVal
     }).map_err(|e| JsValue::from_str(&e))
 }
 
+/// Compute temporal histogram: bins timestamps by calendar unit (auto-detected).
+/// Granularity: <48h → hourly, <90d → daily, <3y → monthly, else yearly.
+/// Returns bins with x0/x1 as epoch milliseconds.
+#[wasm_bindgen]
+pub fn store_temporal_histogram(handle: u32, col: usize) -> Result<JsValue, JsValue> {
+    with_store(handle, |s| {
+        let mut ms_values: Vec<i64> = Vec::new();
+        for batch in &s.batches {
+            let column = batch.column(col);
+            extract_timestamp_ms(column, &mut ms_values);
+        }
+        if ms_values.is_empty() {
+            return serde_wasm_bindgen::to_value(&Vec::<HistogramBin>::new()).unwrap();
+        }
+
+        let min_ms = *ms_values.iter().min().unwrap();
+        let max_ms = *ms_values.iter().max().unwrap();
+        let range_ms = max_ms - min_ms;
+
+        // Auto-detect granularity
+        let ms_per_hour: i64 = 3_600_000;
+        let ms_per_day: i64 = 86_400_000;
+        let ms_per_month: i64 = 30 * ms_per_day; // approximate
+        let ms_per_year: i64 = 365 * ms_per_day;
+
+        let bin_width_ms = if range_ms < 48 * ms_per_hour {
+            ms_per_hour
+        } else if range_ms < 90 * ms_per_day {
+            ms_per_day
+        } else if range_ms < 3 * ms_per_year {
+            ms_per_month
+        } else {
+            ms_per_year
+        };
+
+        // Align start to bin boundary
+        let start = (min_ms / bin_width_ms) * bin_width_ms;
+        let end = ((max_ms / bin_width_ms) + 1) * bin_width_ms;
+        let num_bins = ((end - start) / bin_width_ms) as usize;
+
+        // Cap at 100 bins to avoid huge arrays
+        let (actual_start, actual_width, actual_count) = if num_bins > 100 {
+            let w = (end - start) / 100;
+            (start, w, 100usize)
+        } else {
+            (start, bin_width_ms, num_bins)
+        };
+
+        let mut bins: Vec<HistogramBin> = (0..actual_count)
+            .map(|i| HistogramBin {
+                x0: (actual_start + i as i64 * actual_width) as f64,
+                x1: (actual_start + (i as i64 + 1) * actual_width) as f64,
+                count: 0,
+            })
+            .collect();
+
+        for &v in &ms_values {
+            let mut idx = ((v - actual_start) / actual_width) as usize;
+            if idx >= actual_count { idx = actual_count - 1; }
+            bins[idx].count += 1;
+        }
+
+        serde_wasm_bindgen::to_value(&bins).unwrap()
+    }).map_err(|e| JsValue::from_str(&e))
+}
+
+/// Extract timestamp values as milliseconds from an Arrow column.
+fn extract_timestamp_ms(column: &dyn Array, out: &mut Vec<i64>) {
+    match column.data_type() {
+        DataType::Timestamp(TimeUnit::Millisecond, _) => {
+            if let Some(arr) = column.as_any().downcast_ref::<arrow::array::TimestampMillisecondArray>() {
+                for i in 0..arr.len() {
+                    if !arr.is_null(i) { out.push(arr.value(i)); }
+                }
+            }
+        }
+        DataType::Timestamp(TimeUnit::Microsecond, _) => {
+            if let Some(arr) = column.as_any().downcast_ref::<arrow::array::TimestampMicrosecondArray>() {
+                for i in 0..arr.len() {
+                    if !arr.is_null(i) { out.push(arr.value(i) / 1000); }
+                }
+            }
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
+            if let Some(arr) = column.as_any().downcast_ref::<arrow::array::TimestampNanosecondArray>() {
+                for i in 0..arr.len() {
+                    if !arr.is_null(i) { out.push(arr.value(i) / 1_000_000); }
+                }
+            }
+        }
+        DataType::Timestamp(TimeUnit::Second, _) => {
+            if let Some(arr) = column.as_any().downcast_ref::<arrow::array::TimestampSecondArray>() {
+                for i in 0..arr.len() {
+                    if !arr.is_null(i) { out.push(arr.value(i) * 1000); }
+                }
+            }
+        }
+        DataType::Date32 => {
+            if let Some(arr) = column.as_any().downcast_ref::<arrow::array::Date32Array>() {
+                for i in 0..arr.len() {
+                    if !arr.is_null(i) { out.push(arr.value(i) as i64 * 86_400_000); }
+                }
+            }
+        }
+        DataType::Int64 => {
+            // Fallback: treat i64 as epoch ms (common for cast timestamps)
+            if let Some(arr) = column.as_any().downcast_ref::<Int64Array>() {
+                for i in 0..arr.len() {
+                    if !arr.is_null(i) { out.push(arr.value(i)); }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Count boolean values in a column: returns [true_count, false_count, null_count].
 #[wasm_bindgen]
 pub fn store_bool_counts(handle: u32, col: usize) -> Result<Vec<u32>, JsValue> {
