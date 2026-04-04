@@ -18,7 +18,7 @@ async function scroll(page: any, container: any, top: number, smooth = false) {
   );
 }
 
-/** Drag the mouse horizontally from current position through a range of x-offsets. */
+/** Drag the mouse horizontally through a range of x-offsets (7px per step). */
 async function dragX(page: any, sx: number, sy: number, from: number, to: number, delayMs: number) {
   const step = from < to ? 1 : -1;
   for (let i = from; step > 0 ? i <= to : i >= to; i += step) {
@@ -30,21 +30,24 @@ async function dragX(page: any, sx: number, sy: number, from: number, to: number
 test('sift-showcase', async ({ page, narration }) => {
   test.setTimeout(180000);
 
-  await page.goto('/?dataset=generated');
+  await page.goto('/?dataset=spotify');
   trackCursor(page, narration);
   cursorHighlight(page, { color: '#60a5fa', radius: 18 });
 
-  // Wait for all 100k rows to stream in (odometer uses data-value attr)
+  // Wait for all ~114k rows to stream in (odometer uses data-value attr)
   await page.waitForFunction(
-    () => document.querySelector('.pt-stat-rows')?.getAttribute('data-value')?.includes('100,000'),
-    { timeout: 30000 },
+    () => document.querySelector('.pt-stat-rows')?.getAttribute('data-value')?.includes('rows'),
+    { timeout: 60000 },
   );
-  await page.waitForTimeout(1000);
+  // Extra settle time — HuggingFace data streams in row groups
+  await page.waitForTimeout(2000);
 
   const headerRow = page.locator('.pt-header-row');
   const tableContainer = page.locator('.pt-table-container');
-  // Column indices match generatedColumnOverrides in src/main.ts:
-  // 0:id 1:name 2:location 3:department 4:note 5:status 6:priority 7:score 8:email 9:verified
+  // Spotify column order (from HF parquet schema):
+  // 0:Unnamed:0 1:track_id 2:artists 3:album_name 4:track_name
+  // 5:popularity 6:duration_ms 7:explicit 8:danceability 9:energy
+  // 10:key ... 20:track_genre
   const col = (n: number) => headerRow.locator('.pt-th').nth(n);
 
   await mark(page, narration, 'intro');
@@ -55,11 +58,12 @@ test('sift-showcase', async ({ page, narration }) => {
   showOverlay(page, 'summaries', summaryDur);
   const beat = Math.floor(summaryDur / 3);
   const summaryColumns = [
-    { col: col(3), color: '#60a5fa' },  // Department (categorical)
-    { col: col(5), color: '#e879f9' },  // Status (categorical)
-    { col: col(6), color: '#22d3ee' },  // Priority (categorical)
+    { col: col(5), color: '#60a5fa' },   // popularity (numeric histogram)
+    { col: col(20), color: '#e879f9' },   // track_genre (categorical bars)
+    { col: col(7), color: '#22d3ee' },    // explicit (boolean ratio bar)
   ];
   for (const { col: header, color } of summaryColumns) {
+    await header.scrollIntoViewIfNeeded();
     focusRing(page, header, { color, duration: beat });
     await header.hover();
     await page.waitForTimeout(beat);
@@ -84,16 +88,22 @@ test('sift-showcase', async ({ page, narration }) => {
   await mark(page, narration, 'resize-text');
   const resizeDur = narration.durationFor('resize-text');
   showOverlay(page, 'resize-text', resizeDur);
-  const noteHeader = col(4);
+  const resizeCol = col(4); // track_name — long titles that wrap well
+  await resizeCol.scrollIntoViewIfNeeded();
   zoomTo(page, tableContainer, {
     narration, scale: 1.4, fadeIn: 800, fadeOut: 800,
     duration: resizeDur, holdMs: Math.floor(resizeDur * 0.7),
   });
   await page.waitForTimeout(800);
-  const headerBox = await noteHeader.boundingBox();
-  if (headerBox) {
-    const sx = headerBox.x + headerBox.width - 3;
-    const sy = headerBox.y + headerBox.height / 2;
+  const resizeHandle = resizeCol.locator('.pt-resize-handle');
+  await resizeHandle.waitFor({ state: 'attached', timeout: 5000 });
+  // Hover the handle to ensure Playwright targets it precisely (6px wide)
+  await resizeHandle.hover({ force: true });
+  await page.waitForTimeout(200);
+  const handleBox = await resizeHandle.boundingBox();
+  if (handleBox) {
+    const sx = handleBox.x + handleBox.width / 2;
+    const sy = handleBox.y + handleBox.height / 2;
     await page.mouse.move(sx, sy);
     await page.waitForTimeout(300);
     await page.mouse.down();
@@ -107,19 +117,21 @@ test('sift-showcase', async ({ page, narration }) => {
   await page.waitForTimeout(600);
   await resetCamera(page);
 
-  // Sort action before mark so the transition reveals a settled table
-  const scoreHeader = col(7);
-  await scoreHeader.locator('.pt-th-top').click();
+  // Sort by danceability — recognizable music metric
+  const danceHeader = col(8);
+  await danceHeader.scrollIntoViewIfNeeded();
+  await danceHeader.locator('.pt-th-top').click();
   await mark(page, narration, 'sort');
   const sortDur = narration.durationFor('sort');
   showOverlay(page, 'sort', sortDur);
-  spotlight(page, scoreHeader, { duration: 2000, padding: 8 });
+  spotlight(page, danceHeader, { duration: 2000, padding: 8 });
   await page.waitForTimeout(sortDur);
 
+  // Brush filter on danceability histogram
   await mark(page, narration, 'brush-filter');
   const brushDur = narration.durationFor('brush-filter');
   showOverlay(page, 'brush-filter', brushDur);
-  const box = await scoreHeader.locator('.pt-th-summary').boundingBox();
+  const box = await danceHeader.locator('.pt-th-summary').boundingBox();
   if (box) {
     const y = box.y + box.height / 2;
     const x0 = box.x + box.width * 0.2;
@@ -136,13 +148,14 @@ test('sift-showcase', async ({ page, narration }) => {
     await page.waitForTimeout(3000);
   }
 
+  // Boolean filter — click "Yes" on the explicit column
   await mark(page, narration, 'boolean-filter');
   showOverlay(page, 'boolean-filter', narration.durationFor('boolean-filter'));
-  const verifiedHeader = col(9);
-  await verifiedHeader.scrollIntoViewIfNeeded();
-  focusRing(page, verifiedHeader, { color: '#22d3ee', duration: 2500 });
+  const explicitHeader = col(7);
+  await explicitHeader.scrollIntoViewIfNeeded();
+  focusRing(page, explicitHeader, { color: '#22d3ee', duration: 2500 });
   await page.waitForTimeout(600);
-  await verifiedHeader.locator('.pt-bool-true').click();
+  await explicitHeader.locator('.pt-bool-true').click();
   await page.waitForTimeout(3000);
 
   await mark(page, narration, 'clear');
@@ -150,7 +163,6 @@ test('sift-showcase', async ({ page, narration }) => {
   showOverlay(page, 'clear', clearDur);
   focusRing(page, page.locator('.pt-filter-pills'), { color: '#e879f9', duration: 2000 });
   await page.waitForTimeout(600);
-  // Each click removes a pill, so .first() always targets the next one
   const pills = page.locator('.pt-filter-pill-x');
   while ((await pills.count()) > 0) {
     await pills.first().click();
@@ -167,8 +179,12 @@ test('sift-showcase', async ({ page, narration }) => {
   await toggle.click();
   await page.waitForTimeout(Math.max(500, darkDur - 1500));
 
-  await mark(page, narration, 'closing');
+  // Skip mark() settle for closing — go straight to the finale
+  narration.mark('closing');
   showConfetti(page, { emoji: ['📊', '⚡', '🔥'], spread: 'burst', duration: 3000, pieces: 180 });
-  showOverlay(page, 'closing', 3000);
-  await page.waitForTimeout(3000);
+  showOverlay(page, 'closing', 4000);
+  const starBtn = page.locator('.pt-github-btn');
+  await page.waitForTimeout(1200);
+  focusRing(page, starBtn, { color: '#f59e0b', duration: 2500 });
+  await page.waitForTimeout(2800);
 });

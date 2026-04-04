@@ -1,7 +1,7 @@
 [
   {
     "scene": "intro",
-    "text": "This is Sift — a crossfilter data explorer that handles massive datasets directly in the browser. Apache Arrow for data, WebAssembly for compute, and zero jank.",
+    "text": "This is Sift — a crossfilter data explorer. We're looking at a hundred and fourteen thousand Spotify tracks, loaded from HuggingFace as Parquet and decoded with WebAssembly.",
     "speed": 0.95,
     "overlay": {
       "type": "headline-card",
@@ -25,19 +25,18 @@
   },
   {
     "scene": "scroll-fast",
-    "text": "One hundred thousand rows. Zero jank. Watch the stats bar — the dom only holds visible rows at any time. Everything else renders on demand.",
+    "text": "Over a hundred thousand tracks. Zero jank. Watch the stats bar — the dom only holds visible rows at any time. Everything else renders on demand.",
     "speed": 0.95,
     "overlay": {
       "type": "lower-third",
-      "text": "100,000 rows — zero jank",
+      "text": "114,000 tracks — zero jank",
       "placement": "bottom-center",
       "motion": "fade-in"
     }
   },
   {
     "scene": "resize-text",
-    "text": "Here's the real trick. Drag a column wider and every single row height recalculates instantly. No dom measurement. Pretext computes text layout with pure arithmetic — two ten-thousandths of a millisecond per cell. That's faster than a single dom reflow.",
-    "voice": "af_heart",
+    "text": "Here's the real trick. Drag the track name column wider and every row height recalculates instantly. No dom measurement. Pretext computes text layout with pure arithmetic — faster than a single dom reflow.",
     "speed": 0.93,
     "overlay": {
       "type": "headline-card",
@@ -50,7 +49,7 @@
   },
   {
     "scene": "sort",
-    "text": "Click any column header to sort the entire dataset. Nulls are always sorted last, exactly where you'd expect them.",
+    "text": "Sort by danceability with a single click. Nulls always go last, exactly where you'd expect them.",
     "speed": 0.95,
     "overlay": {
       "type": "callout",
@@ -61,7 +60,7 @@
   },
   {
     "scene": "brush-filter",
-    "text": "Drag across any histogram to create a range filter. Watch every other column's summary update in real time — that's crossfiltering.",
+    "text": "Drag across the danceability histogram to filter by range. Watch every other column's summary update in real time — that's crossfiltering.",
     "speed": 0.95,
     "overlay": {
       "type": "callout",
@@ -72,7 +71,7 @@
   },
   {
     "scene": "boolean-filter",
-    "text": "Click the Yes bar on the Verified column and the entire table filters instantly. Row count drops, every summary updates.",
+    "text": "Click Yes on the explicit column and the table filters instantly. Row count drops, every summary updates.",
     "speed": 0.95,
     "overlay": {
       "type": "callout",
@@ -83,11 +82,11 @@
   },
   {
     "scene": "clear",
-    "text": "Clear all filters and the full dataset snaps back instantly. One hundred thousand rows, ready to explore again.",
+    "text": "Clear all filters and the full dataset snaps back instantly. A hundred and fourteen thousand tracks, ready to explore again.",
     "speed": 0.95,
     "overlay": {
       "type": "lower-third",
-      "text": "All 100,000 rows — back in an instant",
+      "text": "All 114,000 tracks — back in an instant",
       "placement": "bottom-center",
       "motion": "fade-in"
     }
@@ -105,12 +104,12 @@
   },
   {
     "scene": "closing",
-    "text": "Sift. Open source and ready for your data.",
+    "text": "Sift. Open source on GitHub. Star the repo and explore your own data.",
     "speed": 0.9,
     "overlay": {
       "type": "headline-card",
       "kicker": "OPEN SOURCE",
-      "title": "Sift",
+      "title": "github.com/rgbkrk/sift",
       "body": "Apache Arrow • Rust WASM • Pretext Layout • Semiotic Charts",
       "placement": "center",
       "motion": "fade-in"
