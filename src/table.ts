@@ -1433,9 +1433,20 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
       recomputeFilteredSummaries()
     }
 
-    // Update stats and summaries
+    // Update row count display
     updateRowCountDisplay()
-    renderAllSummaries()
+
+    // Re-render non-histogram summaries (categorical, boolean) immediately —
+    // they don't have a visible-window overlay so there's no flicker concern.
+    // Numeric/timestamp histograms are NOT rendered here; instead we reset
+    // the overlay tracking so the scheduled render paints them with the
+    // correct visible bins, avoiding the all→windowed flicker.
+    for (let c = 0; c < columns.length; c++) {
+      const summary = data.columnSummaries[c]
+      if (summary && summary.kind !== 'numeric' && summary.kind !== 'timestamp') {
+        renderSummary(c)
+      }
+    }
 
     heightsDirty = true
     // Force visible rows to refresh
