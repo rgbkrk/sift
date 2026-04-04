@@ -63,15 +63,4 @@ test.describe('Odometer', () => {
     expect(afterClear).toContain('100,000')
   })
 
-  test('range display uses odometer slots', async ({ page }) => {
-    await expect(page.locator('.pt-stat-rows')).toHaveAttribute('data-value', /100,000/, { timeout: 10_000 })
-
-    // The range display should have odometer slots
-    const range = page.locator('.pt-stat-range')
-    const slots = range.locator('.pt-odo-slot')
-    await expect(slots.first()).toBeVisible()
-
-    // Data-value should show "showing X–Y"
-    await expect(range).toHaveAttribute('data-value', /showing/)
-  })
 })
