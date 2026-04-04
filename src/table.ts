@@ -845,7 +845,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
             const fmt = (v: number) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
             text += `${fmt(f.min)} – ${fmt(f.max)}`
           } else {
-            text += `${f.min.toLocaleString(undefined, { maximumFractionDigits: 1 })} – ${f.max.toLocaleString(undefined, { maximumFractionDigits: 1 })}`
+            const minStr = f.min.toLocaleString(undefined, { maximumFractionDigits: 1 })
+            const maxStr = f.max.toLocaleString(undefined, { maximumFractionDigits: 1 })
+            text += minStr === maxStr ? minStr : `${minStr} – ${maxStr}`
           }
           break
         }
