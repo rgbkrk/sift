@@ -291,19 +291,21 @@ pub fn store_value_counts(handle: u32, col: usize) -> Result<JsValue, JsValue> {
             let column = batch.column(col);
             match column.data_type() {
                 DataType::Utf8 | DataType::LargeUtf8 => {
-                    let arr = column.as_any().downcast_ref::<StringArray>().unwrap();
-                    for i in 0..arr.len() {
-                        if !arr.is_null(i) {
-                            *freq.entry(arr.value(i).to_string()).or_insert(0) += 1;
+                    if let Some(arr) = column.as_any().downcast_ref::<StringArray>() {
+                        for i in 0..arr.len() {
+                            if !arr.is_null(i) {
+                                *freq.entry(arr.value(i).to_string()).or_insert(0) += 1;
+                            }
                         }
                     }
                 }
                 DataType::Boolean => {
-                    let arr = column.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    for i in 0..arr.len() {
-                        if !arr.is_null(i) {
-                            let key = if arr.value(i) { "Yes" } else { "No" };
-                            *freq.entry(key.to_string()).or_insert(0) += 1;
+                    if let Some(arr) = column.as_any().downcast_ref::<BooleanArray>() {
+                        for i in 0..arr.len() {
+                            if !arr.is_null(i) {
+                                let key = if arr.value(i) { "Yes" } else { "No" };
+                                *freq.entry(key.to_string()).or_insert(0) += 1;
+                            }
                         }
                     }
                 }
@@ -337,6 +339,7 @@ pub fn store_value_counts(handle: u32, col: usize) -> Result<JsValue, JsValue> {
             .map(|(label, count)| CategoryCount { label, count })
             .collect();
         counts.sort_by(|a, b| b.count.cmp(&a.count));
+        // serde_wasm_bindgen serialization won't fail for simple structs
         serde_wasm_bindgen::to_value(&counts).unwrap()
     }).map_err(|e| JsValue::from_str(&e))
 }
@@ -350,30 +353,34 @@ pub fn store_histogram(handle: u32, col: usize, num_bins: usize) -> Result<JsVal
             let column = batch.column(col);
             match column.data_type() {
                 DataType::Float64 => {
-                    let arr = column.as_any().downcast_ref::<Float64Array>().unwrap();
-                    for i in 0..arr.len() {
-                        if !arr.is_null(i) {
-                            let v = arr.value(i);
-                            if v.is_finite() { values.push(v); }
+                    if let Some(arr) = column.as_any().downcast_ref::<Float64Array>() {
+                        for i in 0..arr.len() {
+                            if !arr.is_null(i) {
+                                let v = arr.value(i);
+                                if v.is_finite() { values.push(v); }
+                            }
                         }
                     }
                 }
                 DataType::Int32 => {
-                    let arr = column.as_any().downcast_ref::<Int32Array>().unwrap();
-                    for i in 0..arr.len() {
-                        if !arr.is_null(i) { values.push(arr.value(i) as f64); }
+                    if let Some(arr) = column.as_any().downcast_ref::<Int32Array>() {
+                        for i in 0..arr.len() {
+                            if !arr.is_null(i) { values.push(arr.value(i) as f64); }
+                        }
                     }
                 }
                 DataType::Int64 => {
-                    let arr = column.as_any().downcast_ref::<Int64Array>().unwrap();
-                    for i in 0..arr.len() {
-                        if !arr.is_null(i) { values.push(arr.value(i) as f64); }
+                    if let Some(arr) = column.as_any().downcast_ref::<Int64Array>() {
+                        for i in 0..arr.len() {
+                            if !arr.is_null(i) { values.push(arr.value(i) as f64); }
+                        }
                     }
                 }
                 _ => {}
             }
         }
         if values.is_empty() {
+            // serde_wasm_bindgen serialization won't fail for simple structs
             return serde_wasm_bindgen::to_value(&Vec::<HistogramBin>::new()).unwrap();
         }
         let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
@@ -547,27 +554,30 @@ pub fn store_filtered_histogram(handle: u32, col: usize, mask: &[u8], num_bins: 
             let n = column.len();
             match column.data_type() {
                 DataType::Float64 => {
-                    let arr = column.as_any().downcast_ref::<Float64Array>().unwrap();
-                    for i in 0..n {
-                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
-                            let v = arr.value(i);
-                            if v.is_finite() { values.push(v); }
+                    if let Some(arr) = column.as_any().downcast_ref::<Float64Array>() {
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                                let v = arr.value(i);
+                                if v.is_finite() { values.push(v); }
+                            }
                         }
                     }
                 }
                 DataType::Int32 => {
-                    let arr = column.as_any().downcast_ref::<Int32Array>().unwrap();
-                    for i in 0..n {
-                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
-                            values.push(arr.value(i) as f64);
+                    if let Some(arr) = column.as_any().downcast_ref::<Int32Array>() {
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                                values.push(arr.value(i) as f64);
+                            }
                         }
                     }
                 }
                 DataType::Int64 => {
-                    let arr = column.as_any().downcast_ref::<Int64Array>().unwrap();
-                    for i in 0..n {
-                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
-                            values.push(arr.value(i) as f64);
+                    if let Some(arr) = column.as_any().downcast_ref::<Int64Array>() {
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                                values.push(arr.value(i) as f64);
+                            }
                         }
                     }
                 }
@@ -619,10 +629,11 @@ pub fn store_filtered_value_counts(handle: u32, col: usize, mask: &[u8]) -> Resu
             let n = column.len();
             match column.data_type() {
                 DataType::Utf8 | DataType::LargeUtf8 => {
-                    let arr = column.as_any().downcast_ref::<StringArray>().unwrap();
-                    for i in 0..n {
-                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
-                            *freq.entry(arr.value(i).to_string()).or_insert(0) += 1;
+                    if let Some(arr) = column.as_any().downcast_ref::<StringArray>() {
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                                *freq.entry(arr.value(i).to_string()).or_insert(0) += 1;
+                            }
                         }
                     }
                 }
@@ -642,11 +653,12 @@ pub fn store_filtered_value_counts(handle: u32, col: usize, mask: &[u8]) -> Resu
                     }
                 }
                 DataType::Boolean => {
-                    let arr = column.as_any().downcast_ref::<BooleanArray>().unwrap();
-                    for i in 0..n {
-                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
-                            let key = if arr.value(i) { "Yes" } else { "No" };
-                            *freq.entry(key.to_string()).or_insert(0) += 1;
+                    if let Some(arr) = column.as_any().downcast_ref::<BooleanArray>() {
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 && !arr.is_null(i) {
+                                let key = if arr.value(i) { "Yes" } else { "No" };
+                                *freq.entry(key.to_string()).or_insert(0) += 1;
+                            }
                         }
                     }
                 }
@@ -754,7 +766,7 @@ pub fn get_viewport(handle: u32, start_row: u32, end_row: u32) -> Result<Vec<u8>
             }
 
             // Compute the overlap
-            let local_start = if start > batch_start { start - batch_start } else { 0 };
+            let local_start = start.saturating_sub(batch_start);
             let local_end = if end < batch_end { end - batch_start } else { batch.num_rows() };
 
             slices.push(batch.slice(local_start, local_end - local_start));
@@ -1006,7 +1018,8 @@ pub fn cast_column(handle: u32, col: usize, target_type: &str) -> Result<(), JsV
                 column.clone()
             } else if target_type == "timestamp" && matches!(source_dt, DataType::Utf8 | DataType::LargeUtf8) {
                 // String → Timestamp: parse ISO date strings manually
-                let str_arr = column.as_any().downcast_ref::<StringArray>().unwrap();
+                let str_arr = column.as_any().downcast_ref::<StringArray>()
+                    .ok_or_else(|| JsValue::from_str("expected StringArray for Utf8 column during cast"))?;
                 let mut builder = arrow::array::TimestampMillisecondArray::builder(str_arr.len());
                 for i in 0..str_arr.len() {
                     if str_arr.is_null(i) {
@@ -1014,6 +1027,7 @@ pub fn cast_column(handle: u32, col: usize, target_type: &str) -> Result<(), JsV
                     } else {
                         let s = str_arr.value(i);
                         if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                            // and_hms_opt(0,0,0) only fails for invalid h/m/s, which are hardcoded valid
                             let ts = dt.and_hms_opt(0, 0, 0).unwrap()
                                 .and_utc().timestamp_millis();
                             builder.append_value(ts);

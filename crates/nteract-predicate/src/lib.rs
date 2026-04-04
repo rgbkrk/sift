@@ -1,4 +1,5 @@
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::JsValue;
 
 mod summary;
 mod filter;
@@ -7,8 +8,7 @@ mod store;
 /// Initialize the WASM module. Call once before using other functions.
 #[wasm_bindgen(start)]
 pub fn init() {
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
+    // console_error_panic_hook is not currently a dependency; add it later if needed
 }
 
 /// Compute a frequency table (value_counts) for a string column

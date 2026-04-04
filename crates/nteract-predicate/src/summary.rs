@@ -4,7 +4,7 @@ use arrow::ipc::reader::StreamReader;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
 
 #[derive(Serialize)]
 pub struct CategoryCount {
@@ -32,7 +32,8 @@ pub fn value_counts_impl(ipc_bytes: &[u8], column_index: usize) -> Result<JsValu
 
         match col.data_type() {
             DataType::Utf8 | DataType::LargeUtf8 => {
-                let arr = col.as_any().downcast_ref::<StringArray>().unwrap();
+                let arr = col.as_any().downcast_ref::<StringArray>()
+                    .ok_or("expected StringArray for Utf8 column")?;
                 for i in 0..arr.len() {
                     if !arr.is_null(i) {
                         *freq.entry(arr.value(i).to_string()).or_insert(0) += 1;
@@ -45,7 +46,8 @@ pub fn value_counts_impl(ipc_bytes: &[u8], column_index: usize) -> Result<JsValu
                 let dict_arr = col.as_any_dictionary();
                 let keys = dict_arr.keys();
                 let values = dict_arr.values();
-                let str_values = values.as_any().downcast_ref::<StringArray>().unwrap();
+                let str_values = values.as_any().downcast_ref::<StringArray>()
+                    .ok_or("expected StringArray for dictionary values")?;
                 for i in 0..keys.len() {
                     if !keys.is_null(i) {
                         let key = keys.as_any().downcast_ref::<Int32Array>()
@@ -94,29 +96,32 @@ pub fn histogram_impl(
 
         match col.data_type() {
             DataType::Float64 => {
-                let arr = col.as_any().downcast_ref::<Float64Array>().unwrap();
-                for i in 0..arr.len() {
-                    if !arr.is_null(i) {
-                        let v = arr.value(i);
-                        if v.is_finite() {
-                            values.push(v);
+                if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                    for i in 0..arr.len() {
+                        if !arr.is_null(i) {
+                            let v = arr.value(i);
+                            if v.is_finite() {
+                                values.push(v);
+                            }
                         }
                     }
                 }
             }
             DataType::Int32 => {
-                let arr = col.as_any().downcast_ref::<Int32Array>().unwrap();
-                for i in 0..arr.len() {
-                    if !arr.is_null(i) {
-                        values.push(arr.value(i) as f64);
+                if let Some(arr) = col.as_any().downcast_ref::<Int32Array>() {
+                    for i in 0..arr.len() {
+                        if !arr.is_null(i) {
+                            values.push(arr.value(i) as f64);
+                        }
                     }
                 }
             }
             DataType::Int64 => {
-                let arr = col.as_any().downcast_ref::<Int64Array>().unwrap();
-                for i in 0..arr.len() {
-                    if !arr.is_null(i) {
-                        values.push(arr.value(i) as f64);
+                if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                    for i in 0..arr.len() {
+                        if !arr.is_null(i) {
+                            values.push(arr.value(i) as f64);
+                        }
                     }
                 }
             }

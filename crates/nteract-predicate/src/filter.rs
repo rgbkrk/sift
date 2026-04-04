@@ -4,7 +4,6 @@ use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
 use arrow_select::filter::filter_record_batch;
 use std::io::Cursor;
-use wasm_bindgen::prelude::*;
 
 /// Filter rows by a boolean mask, return filtered Arrow IPC bytes.
 pub fn filter_rows_impl(ipc_bytes: &[u8], mask: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -62,7 +61,8 @@ pub fn string_contains_impl(
 
         match col.data_type() {
             DataType::Utf8 | DataType::LargeUtf8 => {
-                let arr = col.as_any().downcast_ref::<StringArray>().unwrap();
+                let arr = col.as_any().downcast_ref::<StringArray>()
+                    .ok_or("expected StringArray for Utf8 column")?;
                 for i in 0..arr.len() {
                     if !arr.is_null(i) && arr.value(i).to_lowercase().contains(&query_lower) {
                         indices.push(offset + i as u32);
@@ -73,7 +73,8 @@ pub fn string_contains_impl(
                 let dict_arr = col.as_any_dictionary();
                 let keys = dict_arr.keys();
                 let values = dict_arr.values();
-                let str_values = values.as_any().downcast_ref::<StringArray>().unwrap();
+                let str_values = values.as_any().downcast_ref::<StringArray>()
+                    .ok_or("expected StringArray for dictionary values")?;
 
                 // Pre-check which dictionary values match (much faster for repeated values)
                 let dict_matches: Vec<bool> = (0..str_values.len())
@@ -83,7 +84,8 @@ pub fn string_contains_impl(
                     })
                     .collect();
 
-                let int_keys = keys.as_any().downcast_ref::<Int32Array>().unwrap();
+                let int_keys = keys.as_any().downcast_ref::<Int32Array>()
+                    .ok_or("expected Int32Array for dictionary keys")?;
                 for i in 0..int_keys.len() {
                     if !int_keys.is_null(i) {
                         let key = int_keys.value(i) as usize;
