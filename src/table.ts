@@ -1,5 +1,5 @@
 import { prepare, layout, type PreparedText } from '@chenglou/pretext'
-import { animationFrameScheduler, interval, Subject, withLatestFrom, map, scan, throttleTime, distinctUntilChanged } from 'rxjs'
+import { animationFrameScheduler, interval, map, scan, throttleTime, distinctUntilChanged } from 'rxjs'
 import { renderColumnSummary, unmountColumnSummary } from './sparkline'
 import { mountColumnMenu, unmountColumnMenu, type ColumnAction } from './column-menu'
 import { fitColumnWidths } from './auto-width'
@@ -626,6 +626,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
 
   const statRows = makeStatSpan('pt-stat-rows')
   const statRange = makeStatSpan('pt-stat-range')
+
+  // Debug stats (DOM rows, FPS) — hidden by default
+  const debugGroup = document.createElement('span')
+  debugGroup.className = 'pt-debug-group'
+  debugGroup.style.display = 'none'
   const statDom = makeStatSpan('pt-stat-dom')
   const statFrame = makeStatSpan('pt-stat-frame')
 
@@ -693,6 +698,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   }
 
   const rowsOdometer = createOdometer(statRows)
+  const rangeOdometer = createOdometer(statRange)
 
   function updateRowCountDisplay() {
     if (hasActiveFilters()) {
@@ -735,7 +741,19 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   const statsSpacer = document.createElement('div')
   statsSpacer.style.flex = '1'
 
-  statsEl.append(statusIndicator, statRows, sep(), statRange, sep(), statDom, sep(), statFrame, filterPillsEl, statsSpacer, fullscreenBtn)
+  // Debug toggle button
+  const debugBtn = document.createElement('button')
+  debugBtn.className = 'pt-debug-btn'
+  debugBtn.title = 'Toggle debug stats'
+  debugBtn.textContent = '⚙'
+  debugBtn.addEventListener('click', () => {
+    const visible = debugGroup.style.display !== 'none'
+    debugGroup.style.display = visible ? 'none' : ''
+    debugBtn.classList.toggle('pt-debug-active', !visible)
+  })
+
+  debugGroup.append(sep(), statDom, sep(), statFrame)
+  statsEl.append(statusIndicator, statRows, sep(), statRange, debugGroup, filterPillsEl, statsSpacer, debugBtn, fullscreenBtn)
   container.appendChild(statsEl)
 
   // Streaming progress bar — at the bottom of the table, below the stats bar
@@ -815,11 +833,9 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     return s
   }
 
-  let prevRange = '', prevDom = ''
+  let prevDom = ''
 
-  // RxJS FPS: frame counter on animationFrameScheduler, render cost from Subject
-  const renderCost$ = new Subject<number>() // receives elapsed ms per render
-
+  // RxJS FPS: frame counter on animationFrameScheduler
   const fpsOdometer = createOdometer(statFrame)
 
   const fps$ = interval(0, animationFrameScheduler).pipe(
@@ -842,8 +858,7 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     }),
   )
   const fpsSub = fps$.pipe(
-    withLatestFrom(renderCost$),
-    map(([fpsStr, cost]) => `${fpsStr}fps·${cost.toFixed(1)}ms`),
+    map(fpsStr => `${fpsStr} fps`),
     distinctUntilChanged(),
     throttleTime(400, animationFrameScheduler, { trailing: true }),
   ).subscribe(text => {
@@ -980,8 +995,6 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
   }
 
   function render() {
-    const t0 = performance.now()
-
     if (heightsDirty) {
       recomputeAllHeights()
       // Account for header height — row pool is absolute inside scroll-content
@@ -1120,14 +1133,10 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     lastScrollTop = scrollTop
     lastViewportHeight = viewportH
 
-    const elapsed = performance.now() - t0
     const rangeStr = `showing ${first}–${Math.min(last, filteredCount - 1)}`
     const domStr = `${pool.filter(p => p.assignedRow !== -1).length} DOM rows`
 
-    // Emit render cost — FPS display handled by RxJS observable
-    renderCost$.next(elapsed)
-
-    prevRange = updateStat(statRange, rangeStr, prevRange)
+    rangeOdometer.update(rangeStr)
     prevDom = updateStat(statDom, domStr, prevDom)
   }
 
