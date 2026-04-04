@@ -517,7 +517,7 @@ h1 {
   min-height: 0; /* allow flex shrinking */
   overflow-y: auto;
   overflow-x: auto;
-  overscroll-behavior-x: none; /* prevent elastic bounce at horizontal edges */
+  overscroll-behavior: none; /* kill elastic bounce entirely — no rubberbanding on iOS */
   position: relative;
 }
 
