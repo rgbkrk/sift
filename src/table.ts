@@ -1077,9 +1077,11 @@ export function createTable(container: HTMLElement, data: TableData, options?: T
     const scrollTop = Math.max(0, viewport.scrollTop - headerH)
     const viewportH = viewport.clientHeight
 
-    // True visible range (no overscan) — used for header overlays
+    // True visible range (no overscan) — used for header overlays and "showing X–Y"
+    // Exclude rows hidden behind sticky header or below viewport bottom
+    const visibleDataHeight = viewportH - headerH
     const visFirst = rowAtOffset(scrollTop)
-    const visLast = Math.min(rowAtOffset(scrollTop + viewportH), filteredCount - 1)
+    const visLast = Math.min(rowAtOffset(scrollTop + visibleDataHeight), filteredCount - 1)
 
     // Scroll velocity: extra overscan in the direction of travel
     const scrollDelta = scrollTop - lastScrollTop
