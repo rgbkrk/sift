@@ -281,6 +281,7 @@ export function histogram(ipc_bytes, column_index, num_bins) {
 
 /**
  * Initialize the WASM module. Call once before using other functions.
+ * Sets up panic hook so Rust panics show readable messages in the browser console.
  */
 export function init() {
     wasm.init();
@@ -662,6 +663,30 @@ export function store_sort_indices(handle, col, ascending) {
 }
 
 /**
+ * Compute temporal histogram: bins timestamps by calendar unit (auto-detected).
+ * Granularity: <48h → hourly, <90d → daily, <3y → monthly, else yearly.
+ * Returns bins with x0/x1 as epoch milliseconds.
+ * @param {number} handle
+ * @param {number} col
+ * @returns {any}
+ */
+export function store_temporal_histogram(handle, col) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.store_temporal_histogram(retptr, handle, col);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
  * Compute value_counts for a column in a loaded store. Much faster than
  * the JS accumulator path since it iterates batches in Rust.
  * @param {number} handle
@@ -868,6 +893,17 @@ function __wbg_get_imports() {
             const ret = Object.entries(getObject(arg0));
             return addHeapObject(ret);
         },
+        __wbg_error_a6fa202b58aa1cd3: function(arg0, arg1) {
+            let deferred0_0;
+            let deferred0_1;
+            try {
+                deferred0_0 = arg0;
+                deferred0_1 = arg1;
+                console.error(getStringFromWasm0(arg0, arg1));
+            } finally {
+                wasm.__wbindgen_export4(deferred0_0, deferred0_1, 1);
+            }
+        },
         __wbg_get_4848e350b40afc16: function(arg0, arg1) {
             const ret = getObject(arg0)[arg1 >>> 0];
             return addHeapObject(ret);
@@ -930,6 +966,10 @@ function __wbg_get_imports() {
             const ret = getObject(arg0).length;
             return ret;
         },
+        __wbg_new_227d7c05414eb861: function() {
+            const ret = new Error();
+            return addHeapObject(ret);
+        },
         __wbg_new_4f9fafbb3909af72: function() {
             const ret = new Object();
             return addHeapObject(ret);
@@ -966,6 +1006,13 @@ function __wbg_get_imports() {
         },
         __wbg_set_6c60b2e8ad0e9383: function(arg0, arg1, arg2) {
             getObject(arg0)[arg1 >>> 0] = takeObject(arg2);
+        },
+        __wbg_stack_3b0d974bbf31e44f: function(arg0, arg1) {
+            const ret = getObject(arg1).stack;
+            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+            const len1 = WASM_VECTOR_LEN;
+            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
         __wbg_value_7f6052747ccf940f: function(arg0) {
             const ret = getObject(arg0).value;

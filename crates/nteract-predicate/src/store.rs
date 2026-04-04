@@ -168,7 +168,8 @@ pub fn num_cols(handle: u32) -> Result<u32, JsValue> {
 #[wasm_bindgen]
 pub fn col_names(handle: u32) -> Result<JsValue, JsValue> {
     with_store(handle, |s| {
-        serde_wasm_bindgen::to_value(&s.col_names).unwrap()
+        // Returns Vec<String> — trivial serialization
+        serde_wasm_bindgen::to_value(&s.col_names).unwrap_or(JsValue::NULL)
     }).map_err(|e| JsValue::from_str(&e))
 }
 
@@ -339,8 +340,8 @@ pub fn store_value_counts(handle: u32, col: usize) -> Result<JsValue, JsValue> {
             .map(|(label, count)| CategoryCount { label, count })
             .collect();
         counts.sort_by(|a, b| b.count.cmp(&a.count));
-        // serde_wasm_bindgen serialization won't fail for simple structs
-        serde_wasm_bindgen::to_value(&counts).unwrap()
+        // Returns Vec<CategoryCount> — simple structs with String/u32 fields
+        serde_wasm_bindgen::to_value(&counts).unwrap_or(JsValue::NULL)
     }).map_err(|e| JsValue::from_str(&e))
 }
 
@@ -381,7 +382,7 @@ pub fn store_histogram(handle: u32, col: usize, num_bins: usize) -> Result<JsVal
         }
         if values.is_empty() {
             // serde_wasm_bindgen serialization won't fail for simple structs
-            return serde_wasm_bindgen::to_value(&Vec::<HistogramBin>::new()).unwrap();
+            return JsValue::from(js_sys::Array::new());
         }
         let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
         let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
@@ -398,7 +399,8 @@ pub fn store_histogram(handle: u32, col: usize, num_bins: usize) -> Result<JsVal
             if idx >= num_bins { idx = num_bins - 1; }
             bins[idx].count += 1;
         }
-        serde_wasm_bindgen::to_value(&bins).unwrap()
+        // Returns Vec<HistogramBin> — simple struct with f64/u32 fields
+        serde_wasm_bindgen::to_value(&bins).unwrap_or(JsValue::NULL)
     }).map_err(|e| JsValue::from_str(&e))
 }
 
@@ -414,7 +416,7 @@ pub fn store_temporal_histogram(handle: u32, col: usize) -> Result<JsValue, JsVa
             extract_timestamp_ms(column, &mut ms_values);
         }
         if ms_values.is_empty() {
-            return serde_wasm_bindgen::to_value(&Vec::<HistogramBin>::new()).unwrap();
+            return JsValue::from(js_sys::Array::new());
         }
 
         let min_ms = *ms_values.iter().min().unwrap();
@@ -464,7 +466,8 @@ pub fn store_temporal_histogram(handle: u32, col: usize) -> Result<JsValue, JsVa
             bins[idx].count += 1;
         }
 
-        serde_wasm_bindgen::to_value(&bins).unwrap()
+        // Returns Vec<HistogramBin> — simple struct with f64/u32 fields
+        serde_wasm_bindgen::to_value(&bins).unwrap_or(JsValue::NULL)
     }).map_err(|e| JsValue::from_str(&e))
 }
 
@@ -597,7 +600,7 @@ pub fn store_filtered_histogram(handle: u32, col: usize, mask: &[u8], num_bins: 
             global_row += n;
         }
         if values.is_empty() {
-            return serde_wasm_bindgen::to_value(&Vec::<HistogramBin>::new()).unwrap();
+            return JsValue::from(js_sys::Array::new());
         }
         let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
         let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
@@ -614,7 +617,8 @@ pub fn store_filtered_histogram(handle: u32, col: usize, mask: &[u8], num_bins: 
             if idx >= num_bins { idx = num_bins - 1; }
             bins[idx].count += 1;
         }
-        serde_wasm_bindgen::to_value(&bins).unwrap()
+        // Returns Vec<HistogramBin> — simple struct with f64/u32 fields
+        serde_wasm_bindgen::to_value(&bins).unwrap_or(JsValue::NULL)
     }).map_err(|e| JsValue::from_str(&e))
 }
 
@@ -677,7 +681,8 @@ pub fn store_filtered_value_counts(handle: u32, col: usize, mask: &[u8]) -> Resu
             .map(|(label, count)| CategoryCount { label, count })
             .collect();
         counts.sort_by(|a, b| b.count.cmp(&a.count));
-        serde_wasm_bindgen::to_value(&counts).unwrap()
+        // Returns Vec<CategoryCount> or Vec<HistogramBin> — simple structs with String/f64/u32 fields
+        serde_wasm_bindgen::to_value(&counts).unwrap_or(JsValue::NULL)
     }).map_err(|e| JsValue::from_str(&e))
 }
 

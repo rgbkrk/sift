@@ -71,6 +71,7 @@ export function histogram(ipc_bytes: Uint8Array, column_index: number, num_bins:
 
 /**
  * Initialize the WASM module. Call once before using other functions.
+ * Sets up panic hook so Rust panics show readable messages in the browser console.
  */
 export function init(): void;
 
@@ -162,6 +163,13 @@ export function store_histogram(handle: number, col: number, num_bins: number): 
 export function store_sort_indices(handle: number, col: number, ascending: boolean): Uint32Array;
 
 /**
+ * Compute temporal histogram: bins timestamps by calendar unit (auto-detected).
+ * Granularity: <48h → hourly, <90d → daily, <3y → monthly, else yearly.
+ * Returns bins with x0/x1 as epoch milliseconds.
+ */
+export function store_temporal_histogram(handle: number, col: number): any;
+
+/**
  * Compute value_counts for a column in a loaded store. Much faster than
  * the JS accumulator path since it iterates batches in Rust.
  */
@@ -219,6 +227,7 @@ export interface InitOutput {
     readonly store_filtered_value_counts: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly store_histogram: (a: number, b: number, c: number, d: number) => void;
     readonly store_sort_indices: (a: number, b: number, c: number, d: number) => void;
+    readonly store_temporal_histogram: (a: number, b: number, c: number) => void;
     readonly store_value_counts: (a: number, b: number, c: number) => void;
     readonly undo_cast_column: (a: number, b: number, c: number) => void;
     readonly filter_rows: (a: number, b: number, c: number, d: number, e: number) => void;
@@ -237,8 +246,8 @@ export interface InitOutput {
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;
-    readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
     readonly __wbindgen_export4: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
     readonly __wbindgen_start: () => void;
 }
 

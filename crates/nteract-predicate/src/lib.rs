@@ -6,9 +6,10 @@ mod filter;
 mod store;
 
 /// Initialize the WASM module. Call once before using other functions.
+/// Sets up panic hook so Rust panics show readable messages in the browser console.
 #[wasm_bindgen(start)]
 pub fn init() {
-    // console_error_panic_hook is not currently a dependency; add it later if needed
+    console_error_panic_hook::set_once();
 }
 
 /// Compute a frequency table (value_counts) for a string column
