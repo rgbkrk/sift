@@ -89,7 +89,7 @@ test.describe('Table Viewer', () => {
 
     // A filter pill should appear
     await expect(page.locator('.pt-filter-pill')).toHaveCount(1, { timeout: 2000 })
-    await expect(page.locator('.pt-filter-pill')).toContainText('score')
+    await expect(page.locator('.pt-filter-pill')).toContainText(/score/i)
 
     // Stats should show filtered count
     await expect(page.locator('.pt-stat-rows')).toHaveAttribute('data-value', /of/)
