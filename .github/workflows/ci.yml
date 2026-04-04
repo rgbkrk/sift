@@ -20,6 +20,15 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy --manifest-path crates/nteract-predicate/Cargo.toml -- -D warnings
+
   e2e:
     runs-on: ubuntu-latest
     steps:
