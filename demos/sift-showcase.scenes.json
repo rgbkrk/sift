@@ -1,0 +1,128 @@
+[
+  {
+    "scene": "intro",
+    "text": "This is Sift — a crossfilter data explorer that handles massive datasets directly in the browser. Apache Arrow for data, WebAssembly for compute, and zero jank.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "headline-card",
+      "kicker": "DATA EXPLORER",
+      "title": "Sift",
+      "body": "Crossfilter exploration for large datasets — Apache Arrow + WASM",
+      "placement": "center",
+      "motion": "fade-in"
+    }
+  },
+  {
+    "scene": "summaries",
+    "text": "Every column gets a live summary automatically. Histograms for numbers, frequency bars for categories, and ratio indicators for booleans. All computed in Rust, running as WASM.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "callout",
+      "text": "Live summaries — histograms, category bars, boolean ratios",
+      "placement": "top-left",
+      "motion": "slide-in"
+    }
+  },
+  {
+    "scene": "scroll-fast",
+    "text": "One hundred thousand rows. Zero jank. Watch the stats bar — the dom only holds visible rows at any time. Everything else renders on demand.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "lower-third",
+      "text": "100,000 rows — zero jank",
+      "placement": "bottom-center",
+      "motion": "fade-in"
+    }
+  },
+  {
+    "scene": "resize-text",
+    "text": "Here's the real trick. Drag a column wider and every single row height recalculates instantly. No dom measurement. Pretext computes text layout with pure arithmetic — two ten-thousandths of a millisecond per cell. That's faster than a single dom reflow.",
+    "voice": "af_heart",
+    "speed": 0.93,
+    "overlay": {
+      "type": "headline-card",
+      "kicker": "PRETEXT LAYOUT",
+      "title": "0.0002ms per cell",
+      "body": "Pure arithmetic text measurement — faster than one DOM reflow",
+      "placement": "top-left",
+      "motion": "slide-in"
+    }
+  },
+  {
+    "scene": "sort",
+    "text": "Click any column header to sort the entire dataset. Nulls are always sorted last, exactly where you'd expect them.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "callout",
+      "text": "Click to sort — nulls always last",
+      "placement": "top-right",
+      "motion": "fade-in"
+    }
+  },
+  {
+    "scene": "brush-filter",
+    "text": "Drag across any histogram to create a range filter. Watch every other column's summary update in real time — that's crossfiltering.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "callout",
+      "text": "Brush to filter — crossfilter updates everything",
+      "placement": "top-left",
+      "motion": "slide-in"
+    }
+  },
+  {
+    "scene": "boolean-filter",
+    "text": "Click the Yes bar on the Verified column and the entire table filters instantly. Row count drops, every summary updates.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "callout",
+      "text": "Boolean filter — click Yes or No to drill down",
+      "placement": "top-right",
+      "motion": "fade-in"
+    }
+  },
+  {
+    "scene": "clear",
+    "text": "Clear all filters and the full dataset snaps back instantly. One hundred thousand rows, ready to explore again.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "lower-third",
+      "text": "All 100,000 rows — back in an instant",
+      "placement": "bottom-center",
+      "motion": "fade-in"
+    }
+  },
+  {
+    "scene": "darkmode",
+    "text": "Light and dark themes, built in.",
+    "voice": "af_heart",
+    "speed": 0.95,
+    "overlay": {
+      "type": "callout",
+      "text": "Dark mode, built in",
+      "placement": "top-right",
+      "motion": "fade-in"
+    }
+  },
+  {
+    "scene": "closing",
+    "text": "Sift. Open source and ready for your data.",
+    "voice": "af_heart",
+    "speed": 0.9,
+    "overlay": {
+      "type": "headline-card",
+      "kicker": "OPEN SOURCE",
+      "title": "Sift",
+      "body": "Apache Arrow • Rust WASM • Pretext Layout • Semiotic Charts",
+      "placement": "center",
+      "motion": "fade-in"
+    }
+  }
+]

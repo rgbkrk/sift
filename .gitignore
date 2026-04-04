@@ -17,6 +17,10 @@ public/wasm/
 test-results/
 playwright-report/
 
+# Argo intermediate artifacts
+.argo/
+videos/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
