@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen::JsValue;
 
+mod utils;
 mod summary;
 mod filter;
 mod store;

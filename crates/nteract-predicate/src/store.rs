@@ -1,8 +1,10 @@
 use arrow::array::{Array, AsArray, Float64Array, Int32Array, Int64Array, UInt32Array, StringArray, BooleanArray, UInt64Array};
 use arrow::datatypes::{DataType, TimeUnit};
+use arrow_cast::display::ArrayFormatter;
 use arrow_select::concat::concat;
 use arrow_ord::sort::{sort_to_indices, SortOptions};
 use crate::summary::{CategoryCount, HistogramBin};
+use crate::utils::dict_key_at;
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
 use arrow::record_batch::RecordBatch;
@@ -231,19 +233,22 @@ pub fn get_cell_string(handle: u32, row: usize, col: usize) -> Result<String, Js
                     .unwrap_or_default()
             }
             DataType::Dictionary(_, _) => {
-                // Dictionary-encoded: look up the value
                 let dict_arr = column.as_any_dictionary();
                 let keys = dict_arr.keys();
                 let values = dict_arr.values();
                 if let Some(str_values) = values.as_any().downcast_ref::<StringArray>() {
-                    if let Some(int_keys) = keys.as_any().downcast_ref::<Int32Array>() {
-                        let key = int_keys.value(local_row) as usize;
+                    if let Some(key) = dict_key_at(keys, local_row) {
                         return str_values.value(key).to_string();
                     }
                 }
                 String::new()
             }
-            _ => format!("{:?}", column.as_ref())
+            _ => {
+                ArrayFormatter::try_new(column.as_ref(), &Default::default())
+                    .ok()
+                    .map(|f| f.value(local_row).to_string())
+                    .unwrap_or_default()
+            }
         }
     }).map_err(|e| JsValue::from_str(&e))
 }
@@ -315,21 +320,19 @@ pub fn store_value_counts(handle: u32, col: usize) -> Result<JsValue, JsValue> {
                     let keys = dict_arr.keys();
                     let values = dict_arr.values();
                     if let Some(str_values) = values.as_any().downcast_ref::<StringArray>() {
-                        if let Some(int_keys) = keys.as_any().downcast_ref::<Int32Array>() {
-                            for i in 0..int_keys.len() {
-                                if !int_keys.is_null(i) {
-                                    let key = int_keys.value(i) as usize;
-                                    *freq.entry(str_values.value(key).to_string()).or_insert(0) += 1;
-                                }
+                        for i in 0..keys.len() {
+                            if let Some(key) = dict_key_at(keys, i) {
+                                *freq.entry(str_values.value(key).to_string()).or_insert(0) += 1;
                             }
                         }
                     }
                 }
                 _ => {
-                    // Stringify other types
-                    for i in 0..column.len() {
-                        if !column.is_null(i) {
-                            *freq.entry(format!("{}", i)).or_insert(0) += 1;
+                    if let Ok(formatter) = ArrayFormatter::try_new(column.as_ref(), &Default::default()) {
+                        for i in 0..column.len() {
+                            if !column.is_null(i) {
+                                *freq.entry(formatter.value(i).to_string()).or_insert(0) += 1;
+                            }
                         }
                     }
                 }
@@ -397,6 +400,11 @@ pub fn store_histogram(handle: u32, col: usize, num_bins: usize) -> Result<JsVal
         for v in &values {
             let mut idx = ((v - min) / bin_width) as usize;
             if idx >= num_bins { idx = num_bins - 1; }
+            if idx > 0 && *v < bins[idx].x0 {
+                idx -= 1;
+            } else if idx + 1 < num_bins && *v >= bins[idx + 1].x0 {
+                idx += 1;
+            }
             bins[idx].count += 1;
         }
         // Returns Vec<HistogramBin> — simple struct with f64/u32 fields
@@ -615,6 +623,11 @@ pub fn store_filtered_histogram(handle: u32, col: usize, mask: &[u8], num_bins: 
         for v in &values {
             let mut idx = ((v - min) / bin_width) as usize;
             if idx >= num_bins { idx = num_bins - 1; }
+            if idx > 0 && *v < bins[idx].x0 {
+                idx -= 1;
+            } else if idx + 1 < num_bins && *v >= bins[idx + 1].x0 {
+                idx += 1;
+            }
             bins[idx].count += 1;
         }
         // Returns Vec<HistogramBin> — simple struct with f64/u32 fields
@@ -646,10 +659,9 @@ pub fn store_filtered_value_counts(handle: u32, col: usize, mask: &[u8]) -> Resu
                     let keys = dict_arr.keys();
                     let values = dict_arr.values();
                     if let Some(str_values) = values.as_any().downcast_ref::<StringArray>() {
-                        if let Some(int_keys) = keys.as_any().downcast_ref::<Int32Array>() {
-                            for i in 0..n {
-                                if global_row + i < mask.len() && mask[global_row + i] != 0 && !int_keys.is_null(i) {
-                                    let key = int_keys.value(i) as usize;
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 {
+                                if let Some(key) = dict_key_at(keys, i) {
                                     *freq.entry(str_values.value(key).to_string()).or_insert(0) += 1;
                                 }
                             }
@@ -667,9 +679,11 @@ pub fn store_filtered_value_counts(handle: u32, col: usize, mask: &[u8]) -> Resu
                     }
                 }
                 _ => {
-                    for i in 0..n {
-                        if global_row + i < mask.len() && mask[global_row + i] != 0 && !column.is_null(i) {
-                            *freq.entry(format!("{}", i)).or_insert(0) += 1;
+                    if let Ok(formatter) = ArrayFormatter::try_new(column.as_ref(), &Default::default()) {
+                        for i in 0..n {
+                            if global_row + i < mask.len() && mask[global_row + i] != 0 && !column.is_null(i) {
+                                *freq.entry(formatter.value(i).to_string()).or_insert(0) += 1;
+                            }
                         }
                     }
                 }
@@ -1232,12 +1246,9 @@ fn get_string_value(arr: &dyn Array, row: usize) -> String {
             let keys = dict_arr.keys();
             let values = dict_arr.values();
             if let Some(str_values) = values.as_any().downcast_ref::<StringArray>() {
-                if let Some(int_keys) = keys.as_any().downcast_ref::<Int32Array>() {
-                    if !int_keys.is_null(row) {
-                        let key = int_keys.value(row) as usize;
-                        if key < str_values.len() {
-                            return str_values.value(key).to_string();
-                        }
+                if let Some(key) = dict_key_at(keys, row) {
+                    if key < str_values.len() {
+                        return str_values.value(key).to_string();
                     }
                 }
             }

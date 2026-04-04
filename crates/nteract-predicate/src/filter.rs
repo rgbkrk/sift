@@ -1,9 +1,11 @@
-use arrow::array::{Array, AsArray, BooleanArray, StringArray, Int32Array};
+use arrow::array::{Array, AsArray, BooleanArray, StringArray};
 use arrow::datatypes::DataType;
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
 use arrow_select::filter::filter_record_batch;
 use std::io::Cursor;
+
+use crate::utils::dict_key_at;
 
 /// Filter rows by a boolean mask, return filtered Arrow IPC bytes.
 pub fn filter_rows_impl(ipc_bytes: &[u8], mask: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -84,11 +86,8 @@ pub fn string_contains_impl(
                     })
                     .collect();
 
-                let int_keys = keys.as_any().downcast_ref::<Int32Array>()
-                    .ok_or("expected Int32Array for dictionary keys")?;
-                for i in 0..int_keys.len() {
-                    if !int_keys.is_null(i) {
-                        let key = int_keys.value(i) as usize;
+                for i in 0..keys.len() {
+                    if let Some(key) = dict_key_at(keys, i) {
                         if key < dict_matches.len() && dict_matches[key] {
                             indices.push(offset + i as u32);
                         }

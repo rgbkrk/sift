@@ -1,10 +1,13 @@
 use arrow::array::{Array, AsArray, Float64Array, Int32Array, Int64Array, StringArray};
 use arrow::datatypes::DataType;
 use arrow::ipc::reader::StreamReader;
+use arrow_cast::display::ArrayFormatter;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
 use wasm_bindgen::JsValue;
+
+use crate::utils::dict_key_at;
 
 #[derive(Serialize)]
 pub struct CategoryCount {
@@ -41,29 +44,25 @@ pub fn value_counts_impl(ipc_bytes: &[u8], column_index: usize) -> Result<JsValu
                 }
             }
             DataType::Dictionary(_, _) => {
-                // Dictionary-encoded: iterate indices, look up in dictionary
-                // This is much faster for high-cardinality columns
                 let dict_arr = col.as_any_dictionary();
                 let keys = dict_arr.keys();
                 let values = dict_arr.values();
                 let str_values = values.as_any().downcast_ref::<StringArray>()
                     .ok_or("expected StringArray for dictionary values")?;
                 for i in 0..keys.len() {
-                    if !keys.is_null(i) {
-                        let key = keys.as_any().downcast_ref::<Int32Array>()
-                            .map(|a| a.value(i) as usize)
-                            .unwrap_or(0);
+                    if let Some(key) = dict_key_at(keys, i) {
                         let val = str_values.value(key);
                         *freq.entry(val.to_string()).or_insert(0) += 1;
                     }
                 }
             }
             _ => {
-                // Fallback: stringify values
-                for i in 0..col.len() {
-                    if !col.is_null(i) {
-                        let s = format!("{:?}", col);
-                        *freq.entry(s).or_insert(0) += 1;
+                // Fallback: format individual values via arrow display
+                if let Ok(formatter) = ArrayFormatter::try_new(col.as_ref(), &Default::default()) {
+                    for i in 0..col.len() {
+                        if !col.is_null(i) {
+                            *freq.entry(formatter.value(i).to_string()).or_insert(0) += 1;
+                        }
                     }
                 }
             }
@@ -155,6 +154,13 @@ pub fn histogram_impl(
         let mut idx = ((v - min) / bin_width) as usize;
         if idx >= num_bins {
             idx = num_bins - 1;
+        }
+        // Floating-point precision correction (à la Polars uniform_hist_count):
+        // the division may place a value in an adjacent bin by ±1 ULP.
+        if idx > 0 && *v < bins[idx].x0 {
+            idx -= 1;
+        } else if idx + 1 < num_bins && *v >= bins[idx + 1].x0 {
+            idx += 1;
         }
         bins[idx].count += 1;
     }
