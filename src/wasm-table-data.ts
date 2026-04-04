@@ -34,7 +34,10 @@ export type WasmTableHandle = {
  * Build a TableData from a WASM store handle.
  * The module must already be initialized (call ensureModule() first).
  */
-export function createWasmTableData(handle: number): WasmTableHandle {
+export function createWasmTableData(
+  handle: number,
+  columnOverrides?: Record<string, Partial<Column>>,
+): WasmTableHandle {
   const mod = getModuleSync()
 
   const numRows = mod.num_rows(handle)
@@ -45,11 +48,12 @@ export function createWasmTableData(handle: number): WasmTableHandle {
   for (let c = 0; c < numCols; c++) {
     const wasmType = mod.col_type(handle, c)
     const colType = mapColType(wasmType)
+    const overrides = columnOverrides?.[names[c]]
     columns.push({
       key: names[c],
-      label: names[c],
-      width: autoWidth(names[c], colType),
-      sortable: true,
+      label: overrides?.label ?? names[c],
+      width: overrides?.width ?? autoWidth(names[c], colType),
+      sortable: overrides?.sortable ?? true,
       numeric: colType === 'numeric',
       columnType: colType,
     })

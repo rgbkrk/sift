@@ -201,7 +201,7 @@ function loadLocalArrow$(dataset: DatasetEntry, tableRoot: HTMLElement): Observa
       renderLoadingSkeleton(tableRoot, 'Loading into WASM…')
       const handle = await loadIpc(arrowBytes)
 
-      const { tableData, columns, prefetchViewport } = createWasmTableData(handle)
+      const { tableData, columns, prefetchViewport } = createWasmTableData(handle, generatedColumnOverrides)
       tableData.prefetchViewport = prefetchViewport
       const mod = getModuleSync()
       tableData.recomputeSummaries = () => updateWasmSummaries(mod, handle, tableData, columns)
